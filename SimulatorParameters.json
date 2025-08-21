@@ -1,0 +1,49 @@
+{
+    "LEO": {
+
+        "EIRP": {
+            "base": 48.0,
+            "min": 35.0,
+            "max": 55.0,
+            "IdealEIRP_Onejammer": 52.0
+        },
+        "Altitude": 550000,
+        "ElevationAngle": {
+            "min": 10,
+            "typical": 30,
+            "max": 90
+        },
+        "SlantRange": {
+            "min": 550000,
+            "typical": 1100000,
+            "max": 1815000
+        },
+        "G_T": {
+            "base": -18.0,
+            "min": -25.0,
+            "max": -10.0
+        },
+        "PathLoss": {
+            "min": 153.8,
+            "typical": 159.6,
+            "max": 163.9
+        }
+    },
+    "GEO": {
+        
+        "EIRP": {
+            "base": 53.0,
+            "min": 50.0,
+            "max": 60.0
+        },
+        "Altitude": 35786000,
+        "G_T": {
+            "base": -42.0,
+            "min": -50.0,
+            "max": -35.0
+        },
+        "PathLoss": {
+            "typical": 201.6
+        }
+    }
+}
