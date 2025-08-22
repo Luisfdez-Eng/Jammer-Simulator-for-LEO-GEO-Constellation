@@ -28,6 +28,32 @@ except ImportError:  # entorno sin GUI
 
 SPEED_OF_LIGHT = 299_792_458.0  # m/s
 EARTH_RADIUS_M = 6_371_000.0
+MU_EARTH = 3.986004418e14  # m^3/s^2 (fase 1)
+
+# ------------------------------------------------------------- #
+# Helpers dB / lineal (Fase 0)                                  #
+# ------------------------------------------------------------- #
+def lin_to_db(x: float, min_lin: float = 1e-30) -> float:
+	"""10log10(x) protegido contra valores <=0."""
+	if x <= min_lin:
+		x = min_lin
+	return 10.0 * math.log10(x)
+
+
+def db_to_lin(x_db: float) -> float:
+	return 10.0 ** (x_db / 10.0)
+
+
+def sum_powers_db(terms_db: List[float]) -> float:
+	"""Suma de potencias en dominio dB (ignora NaN)."""
+	linear_sum = 0.0
+	for v in terms_db:
+		if v is None or (isinstance(v, float) and math.isnan(v)):
+			continue
+		linear_sum += db_to_lin(v)
+	if linear_sum <= 0:
+		return float('-inf')
+	return lin_to_db(linear_sum)
 
 # ------------------------------------------------------------- #
 # Carga de parámetros centralizada                              #
@@ -66,6 +92,8 @@ class Constellation:
 		return cls([Satellite(name="LEO-SAT-1", altitude_m=altitude_m)])
 
 
+# ------------------------------------------------------------- #
+# Calculos para los Enlaces #
 # ------------------------------------------------------------- #
 class LEOEducationalCalculations:
 	def __init__(self, altitude_m: float, frequency_hz: float = 12e9):
@@ -126,6 +154,38 @@ class JammerSimulatorCore:
 			self.geo_gt_dbk = -5.0
 		# Calculadora separada para GEO (misma frecuencia inicial)
 		self.geo_calc = LEOEducationalCalculations(altitude_m=self.geo_altitude_m, frequency_hz=self.calc.frequency_hz)
+		# --------------------------------------------------------- #
+		# Contenedores estructurados (Fase 0)                      #
+		# --------------------------------------------------------- #
+		self.losses: Dict[str, float] = {
+			'RFL_feeder': 0.0,
+			'AML_misalignment': 0.0,
+			'AA_atmos': 0.0,
+			'Rain_att': 0.0,
+			'PL_polarization': 0.0,
+			'L_pointing': 0.0,
+			'L_impl': 0.0,
+		}
+		self.noise: Dict[str, float] = {
+			'T_rx': 120.0,
+			'T_clear_sky': 30.0,
+			'T_rain_excess': 0.0,
+		}
+		self.power: Dict[str, float] = {
+			'EIRP_sat_saturated': self.eirp_dbw,
+			'Input_backoff': 0.0,
+		}
+		self.throughput: Dict[str, float] = {
+			'Rb_Mbps': 10.0,
+			'EbN0_req_dB': 4.0,
+		}
+		self.latencies: Dict[str, float] = {
+			'Processing_delay_ms': 2.0,
+			'Switching_delay_ms': 1.0,
+		}
+		self.coverage: Dict[str, float] = {
+			'Min_elevation_deg': 10.0,
+		}
 
 
 # ------------------------------------------------------------- #
@@ -153,16 +213,58 @@ class SimulatorGUI:
 	def _build_layout(self):
 		self.mainframe = ttk.Frame(self.root, padding=5); self.mainframe.pack(fill='both', expand=True)
 		left = ttk.Frame(self.mainframe); left.pack(side='left', fill='y')
-		ttk.Label(left, text="Modo:").pack(anchor='w')
+		bold_lbl = ('Segoe UI', 10, 'bold')
+		ttk.Label(left, text="Modo:", font=bold_lbl).pack(anchor='w')
 		self.mode_var = tk.StringVar(value='LEO')
 		mode_combo = ttk.Combobox(left, textvariable=self.mode_var, values=['LEO','GEO'], state='readonly')
 		mode_combo.pack(anchor='w', pady=2)
 		mode_combo.bind('<<ComboboxSelected>>', lambda e: self._change_mode())
-		ttk.Label(left, text="EIRP (dBW):").pack(anchor='w'); self.eirp_var = tk.DoubleVar(value=self.core.eirp_dbw); ttk.Entry(left, textvariable=self.eirp_var, width=10).pack(anchor='w')
-		ttk.Label(left, text="G/T (dB/K):").pack(anchor='w'); self.gt_var = tk.DoubleVar(value=self.core.gt_dbk); ttk.Entry(left, textvariable=self.gt_var, width=10).pack(anchor='w')
-		ttk.Label(left, text="Frecuencia (GHz):").pack(anchor='w'); self.freq_var = tk.DoubleVar(value=self.core.calc.frequency_hz/1e9); ttk.Entry(left, textvariable=self.freq_var, width=10).pack(anchor='w')
-		ttk.Label(left, text="BW (MHz):").pack(anchor='w'); self.bw_var = tk.DoubleVar(value=self.core.calc.default_bandwidth_hz/1e6); ttk.Entry(left, textvariable=self.bw_var, width=10).pack(anchor='w')
+		ttk.Label(left, text="EIRP (dBW):", font=bold_lbl).pack(anchor='w'); self.eirp_var = tk.DoubleVar(value=self.core.eirp_dbw); ttk.Entry(left, textvariable=self.eirp_var, width=10).pack(anchor='w')
+		ttk.Label(left, text="G/T (dB/K):", font=bold_lbl).pack(anchor='w'); self.gt_var = tk.DoubleVar(value=self.core.gt_dbk); ttk.Entry(left, textvariable=self.gt_var, width=10).pack(anchor='w')
+		ttk.Label(left, text="Frecuencia (GHz):", font=bold_lbl).pack(anchor='w'); self.freq_var = tk.DoubleVar(value=self.core.calc.frequency_hz/1e9); ttk.Entry(left, textvariable=self.freq_var, width=10).pack(anchor='w')
+		ttk.Label(left, text="BW (MHz):", font=bold_lbl).pack(anchor='w'); self.bw_var = tk.DoubleVar(value=self.core.calc.default_bandwidth_hz/1e6); ttk.Entry(left, textvariable=self.bw_var, width=10).pack(anchor='w')
+		# -------- Potencia / Backoff (Fase 3) --------
+		power_frame = ttk.LabelFrame(left, text='Potencia / Backoff')
+		power_frame.pack(fill='x', pady=6)
+		self.eirp_sat_var = tk.DoubleVar(value=self.core.power['EIRP_sat_saturated'])
+		self.input_bo_var = tk.DoubleVar(value=self.core.power['Input_backoff'])
+		self.manual_override_var = tk.BooleanVar(value=False)
+		self.manual_eirp_var = tk.DoubleVar(value=self.core.eirp_dbw)
+		row_pf1 = ttk.Frame(power_frame); row_pf1.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_pf1, text='EIRP Saturado (dBW):', font=bold_lbl).pack(side='left')
+		self.eirp_sat_entry = ttk.Entry(row_pf1, textvariable=self.eirp_sat_var, width=8); self.eirp_sat_entry.pack(side='right')
+		row_pf2 = ttk.Frame(power_frame); row_pf2.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_pf2, text='Back-off Entrada (dB):', font=bold_lbl).pack(side='left')
+		self.input_bo_entry = ttk.Entry(row_pf2, textvariable=self.input_bo_var, width=8); self.input_bo_entry.pack(side='right')
+		row_pf3 = ttk.Frame(power_frame); row_pf3.pack(fill='x', padx=2, pady=1)
+		self.output_bo_label = ttk.Label(row_pf3, text='Back-off Salida: 0.0 dB', font=bold_lbl)
+		self.output_bo_label.pack(side='left', anchor='w')
+		self.eirp_eff_label = ttk.Label(row_pf3, text='EIRP Efectivo: -- dBW', font=bold_lbl)
+		self.eirp_eff_label.pack(side='right', anchor='e')
+		row_pf4 = ttk.Frame(power_frame); row_pf4.pack(fill='x', padx=2, pady=1)
+		self.override_chk = ttk.Checkbutton(row_pf4, text='Override EIRP', variable=self.manual_override_var, command=lambda: self.update_metrics())
+		self.override_chk.pack(side='left')
+		self.manual_eirp_entry = ttk.Entry(row_pf4, textvariable=self.manual_eirp_var, width=8)
+		self.manual_eirp_entry.pack(side='right')
 		sep2 = ttk.Separator(left, orient='horizontal'); sep2.pack(fill='x', pady=6)
+		# ---------------- Inputs Pérdidas (Fase 2) ----------------
+		loss_frame = ttk.LabelFrame(left, text='Pérdidas (dB)')
+		loss_frame.pack(fill='x', pady=6)
+		self.loss_vars = {}
+		loss_order = [
+			('RFL_feeder','Feeder RF'),
+			('AML_misalignment','Desalineación Antena'),
+			('AA_atmos','Atenuación Atmosférica'),
+			('Rain_att','Atenuación Lluvia'),
+			('PL_polarization','Desajuste Polarización'),
+			('L_pointing','Pérdida Apuntamiento'),
+			('L_impl','Pérdidas Implementación'),
+		]
+		for key,label in loss_order:
+			self.loss_vars[key] = tk.DoubleVar(value=self.core.losses[key])
+			row_f = ttk.Frame(loss_frame); row_f.pack(fill='x', padx=2, pady=1)
+			ttk.Label(row_f, text=label+':', font=bold_lbl).pack(side='left')
+			ttk.Entry(row_f, textvariable=self.loss_vars[key], width=6).pack(side='right')
 		self.run_btn = ttk.Button(left, text="Iniciar", command=self.toggle_run); self.run_btn.pack(anchor='w', pady=2)
 		self.reset_btn = ttk.Button(left, text="Reset", command=self.reset); self.reset_btn.pack(anchor='w', pady=2)
 		center = ttk.Frame(self.mainframe); center.pack(side='left', fill='both', expand=True)
@@ -181,6 +283,10 @@ class SimulatorGUI:
 		self.metrics_panel = ttk.Frame(right)
 		self.metrics_panel.pack(fill='both', expand=True)
 		self._init_metrics_table()
+		# Botón colapsar pérdidas
+		self.show_losses = False
+		self.toggle_losses_btn = ttk.Button(right, text='Mostrar Pérdidas ▶', command=self._toggle_losses)
+		self.toggle_losses_btn.pack(fill='x', pady=2)
 		self.export_btn = ttk.Button(right, text='Exportar CSV/XLSX', command=self.export_csv); self.export_btn.pack(side='bottom', pady=4)
 
 	def toggle_run(self):
@@ -223,7 +329,10 @@ class SimulatorGUI:
 		# Orden y mapeo legible
 		field_order = [
 			'time_s','mode','orbit_angle_deg','geo_longitude_deg','elevation_deg','visible','slant_range_km',
-			'fspl_db','latency_ms_one_way','cn0_dbhz','cn_db','eirp_dbw','gt_dbk','frequency_ghz','bandwidth_mhz'
+			'fspl_db','loss_total_extra_db','path_loss_total_db',
+			'RFL_feeder','AML_misalignment','AA_atmos','Rain_att','PL_polarization','L_pointing','L_impl',
+			'eirp_sat_dbw','input_backoff_db','output_backoff_db','eirp_dbw','manual_eirp_override',
+			'latency_ms_one_way','cn0_dbhz','cn_db','gt_dbk','frequency_ghz','bandwidth_mhz'
 		]
 		label_map = {
 			'time_s':'TIME [s]',
@@ -234,6 +343,20 @@ class SimulatorGUI:
 			'visible':'VISIBLE (1/0)',
 			'slant_range_km':'SLANT RANGE [km]',
 			'fspl_db':'FSPL [dB]',
+			'loss_total_extra_db':'SUM EXTRA LOSSES [dB]',
+			'path_loss_total_db':'PATH LOSS TOTAL [dB]',
+			'RFL_feeder':'RFL FEEDER [dB]',
+			'AML_misalignment':'AML MISALIGN [dB]',
+			'AA_atmos':'AA ATMOS [dB]',
+			'Rain_att':'RAIN ATT [dB]',
+			'PL_polarization':'PL POL [dB]',
+			'L_pointing':'POINTING [dB]',
+			'L_impl':'IMPL [dB]',
+			'eirp_sat_dbw':'EIRP SAT [dBW]',
+			'input_backoff_db':'INPUT BO [dB]',
+			'output_backoff_db':'OUTPUT BO [dB]',
+			'eirp_dbw':'EIRP EFF [dBW]',
+			'manual_eirp_override':'MAN EIRP OVERRIDE (1/0)',
 			'latency_ms_one_way':'LATENCY OW [ms]',
 			'cn0_dbhz':'C/N0 [dBHz]',
 			'cn_db':'C/N [dB]',
@@ -283,24 +406,73 @@ class SimulatorGUI:
 		"""Crea etiquetas (nombre en negrita, valor coloreado)."""
 		font_label = ('Segoe UI', 10, 'bold')
 		font_value = ('Consolas', 11)
+		# Definimos filas con secciones (None => separador visual)
 		rows = [
+			('— PARÁMETROS BÁSICOS —','section'),
 			('Modo', '—'),
 			('Elevación [°]', '—'),
-			('Distancia [km]', '—'),
-			('FSPL [dB]', '—'),
-			('Latencia OW [ms]', '—'),
+			('Distancia Slant [km]', '—'),
+			('FSPL (Espacio Libre) [dB]', '—'),
+			('Latencia Ida [ms]', '—'),
+			('Latencia RTT [ms]', '—'),
 			('C/N0 [dBHz]', '—'),
 			('C/N [dB]', '—'),
-			('EIRP [dBW]', '—'),
 			('G/T [dB/K]', '—'),
+			('— POTENCIA Y BACK-OFF —','section'),
+			('EIRP Saturado [dBW]', '—'),
+			('Back-off Entrada [dB]', '—'),
+			('Back-off Salida [dB]', '—'),
+			('EIRP Efectivo [dBW]', '—'),
+			('— GEOMETRÍA ORBITAL —','section'),
+			('Ángulo Central Δ [°]', '—'),
+			('Radio Orbital [km]', '—'),
+			('Velocidad Orbital [km/s]', '—'),
+			('Velocidad Angular ω [°/s]', '—'),
+			('Rate Cambio Distancia [km/s]', '—'),
+			('Periodo Orbital [min]', '—'),
+			('Tiempo Visibilidad Restante [s]', '—'),
+			('— DOPPLER —','section'),
+			('Doppler Instantáneo [kHz]', '—'),
+			('Doppler Máx Teórico [kHz]', '—'),
+			('— PÉRDIDAS —','section'),
+			('Σ Pérdidas Extra [dB]', '—'),
+			('Path Loss Total [dB]', '—'),
 		]
 		self.metric_labels = {}
-		for r,(name, val) in enumerate(rows):
+		row_index = 0
+		for name, val in rows:
+			if val == 'section':
+				sep = ttk.Separator(self.metrics_panel, orient='horizontal')
+				sep.grid(row=row_index, column=0, columnspan=2, sticky='ew', pady=(6,2))
+				lbl_section = ttk.Label(self.metrics_panel, text=name, font=('Segoe UI',9,'bold'), foreground='#555')
+				lbl_section.grid(row=row_index+1, column=0, columnspan=2, sticky='w', padx=2)
+				row_index += 2
+				continue
 			lbl = ttk.Label(self.metrics_panel, text=name+':', font=font_label, anchor='w')
-			lbl.grid(row=r, column=0, sticky='w', padx=(2,4), pady=1)
+			lbl.grid(row=row_index, column=0, sticky='w', padx=(2,4), pady=1)
 			val_lbl = ttk.Label(self.metrics_panel, text=val, font=font_value, foreground='#004080', anchor='e')
-			val_lbl.grid(row=r, column=1, sticky='e', padx=(4,6), pady=1)
+			val_lbl.grid(row=row_index, column=1, sticky='e', padx=(4,6), pady=1)
 			self.metric_labels[name] = val_lbl
+			row_index += 1
+		self.loss_rows_start_index = row_index
+		# Filas detalladas de pérdidas (creadas pero ocultas inicialmente)
+		loss_detail_rows = [
+			('Feeder RF [dB]', 'RFL_feeder'),
+			('Desalineación Antena [dB]', 'AML_misalignment'),
+			('Atenuación Atmosférica [dB]', 'AA_atmos'),
+			('Atenuación Lluvia [dB]', 'Rain_att'),
+			('Desajuste Polarización [dB]', 'PL_polarization'),
+			('Pérdida Apuntamiento [dB]', 'L_pointing'),
+			('Pérdidas Implementación [dB]', 'L_impl'),
+		]
+		self.loss_detail_label_map = {}
+		current_row = self.loss_rows_start_index
+		for disp, key in loss_detail_rows:
+			lbl = ttk.Label(self.metrics_panel, text=disp+':', font=font_label, anchor='w')
+			val_lbl = ttk.Label(self.metrics_panel, text='—', font=font_value, foreground='#004080', anchor='e')
+			# No grid todavía (colapsado inicialmente)
+			self.loss_detail_label_map[key] = val_lbl
+		self.metrics_panel.columnconfigure(0, weight=1)
 		self.metrics_panel.columnconfigure(0, weight=1)
 		self.metrics_panel.columnconfigure(1, weight=1)
 
@@ -368,6 +540,7 @@ class SimulatorGUI:
 			self.canvas.create_oval(sx-7, sy-7, sx+7, sy+7, fill='orange', outline='black', tags='dyn')
 			self.canvas.create_text(sx+10, sy, text=f"LEO {elev_deg:.0f}°" + ("" if visible else " (OCULTO)"), anchor='w', tags='dyn')
 			self.current_elevation_deg = elev_deg; self.current_visible = visible; self.current_slant_distance_m = slant_km * 1000.0
+			self.current_delta_deg = delta_deg  # Para Fase 1 (geometría/doppler)
 		else:
 			geo_r_px = self.geo_orbit_r_px
 			self.canvas.create_oval(self.cx-geo_r_px, self.cy-geo_r_px, self.cx+geo_r_px, self.cy+geo_r_px, outline='#aaaaff', dash=(2,3), tags='dyn')
@@ -397,33 +570,260 @@ class SimulatorGUI:
 			if not self.user_adjusting_slider: self.orbit_slider_var.set(self.orbit_angle_deg)
 		self.update_metrics(); self._draw_dynamic(); self.root.after(300, self._animate)
 
+	# ----------------------------- BLOQUES MODULARES (Fases 0-1) ----------------------------- #
 	def update_metrics(self):
-		self.core.eirp_dbw = float(self.eirp_var.get()); self.core.gt_dbk = float(self.gt_var.get())
-		self.core.calc.frequency_hz = float(self.freq_var.get()) * 1e9; self.core.calc.default_bandwidth_hz = float(self.bw_var.get()) * 1e6
-		if not hasattr(self, 'current_slant_distance_m'): self._draw_dynamic()
-		d = self.current_slant_distance_m; visible = getattr(self, 'current_visible', True)
-		calc = self.core.calc if self.mode_var.get() == 'LEO' else self.core.geo_calc
-		if calc is self.core.geo_calc:
-			calc.frequency_hz = self.core.calc.frequency_hz; calc.default_bandwidth_hz = self.core.calc.default_bandwidth_hz
-		fspl = calc.free_space_path_loss_db(d) if visible else float('nan'); lat_ow = calc.propagation_delay_ms(d) if visible else float('nan')
-		if visible: cn0 = calc.cn0_dbhz(self.core.eirp_dbw, self.core.gt_dbk, fspl); cn = calc.cn_db(cn0)
-		else: cn0 = float('nan'); cn = float('nan')
-		# Actualiza tabla visual
-		def fmt(v, fmt_str="{:.2f}"):
-			return '—' if (isinstance(v,float) and math.isnan(v)) else (fmt_str.format(v) if isinstance(v,(int,float)) else str(v))
+		"""Orquesta el refresco: parámetros -> geometría -> doppler -> enlace -> render tabla."""
+		self._update_core_params()
+		self._update_geometry_block()
+		self._update_doppler_block()
+		self._update_link_block()
+		self._render_metrics()
+		self._append_history_row()
+
+	def _update_core_params(self):
+		self.core.eirp_dbw = float(self.eirp_var.get())
+		self.core.gt_dbk = float(self.gt_var.get())
+		self.core.calc.frequency_hz = float(self.freq_var.get()) * 1e9
+		self.core.calc.default_bandwidth_hz = float(self.bw_var.get()) * 1e6
+		# Sincroniza GEO calc frecuencia/BW
+		self.core.geo_calc.frequency_hz = self.core.calc.frequency_hz
+		self.core.geo_calc.default_bandwidth_hz = self.core.calc.default_bandwidth_hz
+		self._update_power_block()
+
+	def _update_power_block(self):
+		"""Fase 3: backoff y EIRP efectivo."""
+		try:
+			eirp_sat = float(self.eirp_sat_var.get())
+		except Exception:
+			eirp_sat = self.core.power.get('EIRP_sat_saturated', self.core.eirp_dbw)
+		try:
+			input_bo = max(0.0, float(self.input_bo_var.get()))
+		except Exception:
+			input_bo = 0.0
+		output_bo = input_bo - 5.0 if input_bo > 0 else 0.0
+		if self.manual_override_var.get():
+			try:
+				self.core.eirp_dbw = float(self.manual_eirp_var.get())
+			except Exception:
+				pass
+		else:
+			self.core.eirp_dbw = eirp_sat - input_bo
+		self.core.power['EIRP_sat_saturated'] = eirp_sat
+		self.core.power['Input_backoff'] = input_bo
+		self.power_metrics = {
+			'eirp_sat': eirp_sat,
+			'input_bo': input_bo,
+			'output_bo': output_bo,
+			'eirp_eff': self.core.eirp_dbw,
+			'manual_override': int(self.manual_override_var.get())
+		}
+		self.output_bo_label.config(text=f"Back-off Salida: {output_bo:.1f} dB")
+		self.eirp_eff_label.config(text=f"EIRP Efectivo: {self.core.eirp_dbw:.1f} dBW")
+
+	def _update_geometry_block(self):
+		"""Calcula métricas geométricas y dinámica orbital ideal (solo LEO)."""
+		if not hasattr(self, 'current_slant_distance_m'):
+			self._draw_dynamic()
+		mode = self.mode_var.get()
+		self.geom: Dict[str, Any] = {k: float('nan') for k in ['delta_deg','r_orb_km','v_orb_kms','omega_deg_s','range_rate_kms','t_orb_min','visibility_remaining_s']}
+		if mode == 'LEO':
+			# Orbital (ideal circular)
+			alt_m = self.core.constellation.satellites[0].altitude_m
+			r_orb_m = EARTH_RADIUS_M + alt_m
+			v_orb = math.sqrt(MU_EARTH / r_orb_m)  # m/s
+			omega_rad_s = v_orb / r_orb_m
+			omega_deg_s = math.degrees(omega_rad_s)
+			T_orb_s = 2 * math.pi * math.sqrt(r_orb_m ** 3 / MU_EARTH)
+			T_orb_min = T_orb_s / 60.0
+			delta_deg = getattr(self, 'current_delta_deg', float('nan'))
+			# Range rate analítica con signo según variación delta
+			if not hasattr(self, '_prev_delta_deg'):
+				self._prev_delta_deg = delta_deg
+			approaching = delta_deg < self._prev_delta_deg  # se acerca a nadir
+			delta_rad = math.radians(delta_deg)
+			Re = EARTH_RADIUS_M
+			r_orb = r_orb_m
+			d_slant = self.current_slant_distance_m
+			if d_slant <= 0:
+				range_rate_ms = 0.0
+			else:
+				dd_dDelta = (Re * r_orb * math.sin(delta_rad)) / d_slant
+				range_rate_ms = dd_dDelta * omega_rad_s
+			if approaching:
+				range_rate_ms *= -1.0
+			self._prev_delta_deg = delta_deg
+			# Tiempo de visibilidad restante (hasta horizonte)
+			if self.current_visible:
+				rem_deg = max(0.0, self.horizon_central_angle_deg - delta_deg)
+				visibility_remaining_s = rem_deg / omega_deg_s if omega_deg_s > 0 else float('nan')
+			else:
+				visibility_remaining_s = 0.0
+			self.geom.update({
+				'delta_deg': delta_deg,
+				'r_orb_km': r_orb_m / 1000.0,
+				'v_orb_kms': v_orb / 1000.0,
+				'omega_deg_s': omega_deg_s,
+				'range_rate_kms': range_rate_ms / 1000.0,
+				't_orb_min': T_orb_min,
+				'visibility_remaining_s': visibility_remaining_s,
+			})
+
+	def _update_doppler_block(self):
+		"""Doppler instantáneo y máximo (solo LEO)."""
+		self.doppler: Dict[str, Any] = {'fd_hz': float('nan'), 'fd_max_hz': float('nan')}
+		if self.mode_var.get() == 'LEO' and self.current_visible:
+			f_c = self.core.calc.frequency_hz
+			v_rad_ms = self.geom.get('range_rate_kms', float('nan')) * 1000.0
+			v_orb_ms = self.geom.get('v_orb_kms', float('nan')) * 1000.0
+			if not math.isnan(v_rad_ms):
+				fd = (v_rad_ms / SPEED_OF_LIGHT) * f_c
+				fd_max = (v_orb_ms / SPEED_OF_LIGHT) * f_c
+				self.doppler.update({'fd_hz': fd, 'fd_max_hz': fd_max})
+
+	def _update_link_block(self):
+		"""FSPL, latencia y C/N actuales (bloque ya existente)."""
+		mode = self.mode_var.get()
+		calc = self.core.calc if mode == 'LEO' else self.core.geo_calc
+		d = getattr(self, 'current_slant_distance_m', float('nan'))
+		visible = getattr(self, 'current_visible', False)
+		# Actualiza pérdidas desde inputs UI
+		if hasattr(self, 'loss_vars'):
+			for k,var in self.loss_vars.items():
+				try:
+					self.core.losses[k] = float(var.get())
+				except Exception:
+					self.core.losses[k] = 0.0
+		loss_total_extra = sum(self.core.losses.values())
+		if visible:
+			fspl = calc.free_space_path_loss_db(d)
+			lat_ow = calc.propagation_delay_ms(d)
+			# Usar Path Loss Total (= FSPL + pérdidas extra) para degradar C/N0
+			path_loss_total = fspl + loss_total_extra
+			cn0 = self.core.eirp_dbw + self.core.gt_dbk - path_loss_total + calc.K_BOLTZ_TERM
+			cn = calc.cn_db(cn0)
+		else:
+			fspl = float('nan'); lat_ow = float('nan'); cn0 = float('nan'); cn = float('nan'); path_loss_total = float('nan')
+		self.link_metrics = {
+			'fspl_db': fspl,
+			'latency_ms_ow': lat_ow,
+			'cn0_dbhz': cn0,
+			'cn_db': cn,
+			'loss_total_extra_db': loss_total_extra,
+			'path_loss_total_db': path_loss_total,
+		}
+
+	def _render_metrics(self):
+		def fmt(v, pattern="{:.2f}"):
+			return '—' if (isinstance(v, float) and math.isnan(v)) else (pattern.format(v) if isinstance(v, (int, float)) else str(v))
+		visible = getattr(self, 'current_visible', False)
+		# Básicos
 		self.metric_labels['Modo'].config(text=self.mode_var.get())
 		elv_txt = f"{self.current_elevation_deg:.1f} ({'OK' if visible else 'OCULTO'})"
 		self.metric_labels['Elevación [°]'].config(text=elv_txt, foreground=('#004080' if visible else '#aa0000'))
-		self.metric_labels['Distancia [km]'].config(text=fmt(d/1000.0,"{:.0f}"))
-		self.metric_labels['FSPL [dB]'].config(text=fmt(fspl,"{:.2f}"))
-		self.metric_labels['Latencia OW [ms]'].config(text=fmt(lat_ow,"{:.2f}"))
-		self.metric_labels['C/N0 [dBHz]'].config(text=fmt(cn0,"{:.2f}"))
-		self.metric_labels['C/N [dB]'].config(text=fmt(cn,"{:.2f}"))
-		self.metric_labels['EIRP [dBW]'].config(text=f"{self.core.eirp_dbw:.1f}")
+		self.metric_labels['Distancia Slant [km]'].config(text=fmt(self.current_slant_distance_m/1000.0, "{:.0f}"))
+		self.metric_labels['FSPL (Espacio Libre) [dB]'].config(text=fmt(self.link_metrics['fspl_db']))
+		self.metric_labels['Latencia Ida [ms]'].config(text=fmt(self.link_metrics['latency_ms_ow']))
+		rtt_ms = self.link_metrics['latency_ms_ow'] * 2 if not math.isnan(self.link_metrics['latency_ms_ow']) else float('nan')
+		self.metric_labels['Latencia RTT [ms]'].config(text=fmt(rtt_ms))
+		self.metric_labels['C/N0 [dBHz]'].config(text=fmt(self.link_metrics['cn0_dbhz']))
+		self.metric_labels['C/N [dB]'].config(text=fmt(self.link_metrics['cn_db']))
 		self.metric_labels['G/T [dB/K]'].config(text=f"{self.core.gt_dbk:.1f}")
+		# Potencia / Backoff
+		self.metric_labels['EIRP Saturado [dBW]'].config(text=f"{self.power_metrics.get('eirp_sat', float('nan')):.1f}")
+		self.metric_labels['Back-off Entrada [dB]'].config(text=f"{self.power_metrics.get('input_bo', float('nan')):.1f}")
+		self.metric_labels['Back-off Salida [dB]'].config(text=f"{self.power_metrics.get('output_bo', float('nan')):.1f}")
+		self.metric_labels['EIRP Efectivo [dBW]'].config(text=f"{self.core.eirp_dbw:.1f}")
+		# Geometría
+		self.metric_labels['Ángulo Central Δ [°]'].config(text=fmt(self.geom['delta_deg'], "{:.2f}"))
+		self.metric_labels['Radio Orbital [km]'].config(text=fmt(self.geom['r_orb_km'], "{:.0f}"))
+		self.metric_labels['Velocidad Orbital [km/s]'].config(text=fmt(self.geom['v_orb_kms'], "{:.2f}"))
+		self.metric_labels['Velocidad Angular ω [°/s]'].config(text=fmt(self.geom['omega_deg_s'], "{:.3f}"))
+		self.metric_labels['Rate Cambio Distancia [km/s]'].config(text=fmt(self.geom['range_rate_kms'], "{:.3f}"))
+		self.metric_labels['Periodo Orbital [min]'].config(text=fmt(self.geom['t_orb_min'], "{:.1f}"))
+		self.metric_labels['Tiempo Visibilidad Restante [s]'].config(text=fmt(self.geom['visibility_remaining_s'], "{:.1f}"))
+		# Doppler
+		fd_khz = self.doppler['fd_hz'] / 1e3 if not math.isnan(self.doppler['fd_hz']) else float('nan')
+		fdmax_khz = self.doppler['fd_max_hz'] / 1e3 if not math.isnan(self.doppler['fd_max_hz']) else float('nan')
+		self.metric_labels['Doppler Instantáneo [kHz]'].config(text=fmt(fd_khz, "{:.1f}"))
+		self.metric_labels['Doppler Máx Teórico [kHz]'].config(text=fmt(fdmax_khz, "{:.1f}"))
+		# Pérdidas
+		self.metric_labels['Σ Pérdidas Extra [dB]'].config(text=fmt(self.link_metrics.get('loss_total_extra_db', float('nan'))))
+		self.metric_labels['Path Loss Total [dB]'].config(text=fmt(self.link_metrics.get('path_loss_total_db', float('nan'))))
+		if getattr(self, 'show_losses', False) and hasattr(self, 'loss_detail_label_map'):
+			for k,v in self.core.losses.items():
+				if k in self.loss_detail_label_map:
+					self.loss_detail_label_map[k].config(text=fmt(v, "{:.2f}"))
+
+	def _append_history_row(self):
 		if self.running and self.start_time is not None:
 			elapsed = time.time() - self.start_time
-			self.history.append({'time_s': round(elapsed,3), 'orbit_angle_deg': round(self.orbit_angle_deg,2), 'mode': self.mode_var.get(), 'geo_longitude_deg': None if self.mode_var.get()=='LEO' else round(self.geo_slider_var.get(),2), 'elevation_deg': round(self.current_elevation_deg,2), 'visible': int(visible), 'slant_range_km': round(d/1000.0,2), 'fspl_db': None if math.isnan(fspl) else round(fspl,2), 'latency_ms_one_way': None if math.isnan(lat_ow) else round(lat_ow,3), 'cn0_dbhz': None if math.isnan(cn0) else round(cn0,2), 'cn_db': None if math.isnan(cn) else round(cn,2), 'eirp_dbw': round(self.core.eirp_dbw,2), 'gt_dbk': round(self.core.gt_dbk,2), 'bandwidth_mhz': round(self.core.calc.default_bandwidth_hz/1e6,3), 'frequency_ghz': round(self.core.calc.frequency_hz/1e9,4)})
+			visible = getattr(self, 'current_visible', False)
+			fspl = self.link_metrics['fspl_db']; lat_ow = self.link_metrics['latency_ms_ow']; cn0 = self.link_metrics['cn0_dbhz']; cn = self.link_metrics['cn_db']
+			row = {
+				'time_s': round(elapsed,3),
+				'orbit_angle_deg': round(self.orbit_angle_deg,2),
+				'mode': self.mode_var.get(),
+				'geo_longitude_deg': None if self.mode_var.get()=='LEO' else round(self.geo_slider_var.get(),2),
+				'elevation_deg': round(self.current_elevation_deg,2),
+				'visible': int(visible),
+				'slant_range_km': round(self.current_slant_distance_m/1000.0,2),
+				'fspl_db': None if math.isnan(fspl) else round(fspl,2),
+				'latency_ms_one_way': None if math.isnan(lat_ow) else round(lat_ow,3),
+				'cn0_dbhz': None if math.isnan(cn0) else round(cn0,2),
+				'cn_db': None if math.isnan(cn) else round(cn,2),
+				'eirp_dbw': round(self.core.eirp_dbw,2),
+				'eirp_sat_dbw': round(self.power_metrics.get('eirp_sat', float('nan')),2),
+				'input_backoff_db': round(self.power_metrics.get('input_bo', float('nan')),2),
+				'output_backoff_db': round(self.power_metrics.get('output_bo', float('nan')),2),
+				'manual_eirp_override': self.power_metrics.get('manual_override',0),
+				'gt_dbk': round(self.core.gt_dbk,2),
+				'bandwidth_mhz': round(self.core.calc.default_bandwidth_hz/1e6,3),
+				'frequency_ghz': round(self.core.calc.frequency_hz/1e9,4)
+			}
+			# Añadir pérdidas al historial
+			row['loss_total_extra_db'] = round(self.link_metrics.get('loss_total_extra_db'),2) if 'loss_total_extra_db' in self.link_metrics else None
+			pl_total = self.link_metrics.get('path_loss_total_db')
+			row['path_loss_total_db'] = round(pl_total,2) if pl_total is not None and not math.isnan(pl_total) else None
+			for k,v in self.core.losses.items():
+				row[k] = round(v,2)
+			self.history.append(row)
+
+	def _toggle_losses(self):
+		self.show_losses = not self.show_losses
+		if self.show_losses:
+			self.toggle_losses_btn.config(text='Ocultar Pérdidas ▼')
+			# Posicionar filas detalladas al final
+			base_row = 0
+			for child in self.metrics_panel.grid_slaves():
+				base_row = max(base_row, int(child.grid_info().get('row',0)))
+			start = base_row + 1
+			ordered = [
+				('RFL_feeder','Feeder RF [dB]'),
+				('AML_misalignment','Desalineación Antena [dB]'),
+				('AA_atmos','Atenuación Atmosférica [dB]'),
+				('Rain_att','Atenuación Lluvia [dB]'),
+				('PL_polarization','Desajuste Polarización [dB]'),
+				('L_pointing','Pérdida Apuntamiento [dB]'),
+				('L_impl','Pérdidas Implementación [dB]'),
+			]
+			self._loss_title_labels = {}
+			for i,(k,disp) in enumerate(ordered):
+				# Crear title label y grid value label
+				title = ttk.Label(self.metrics_panel, text=disp+':', font=('Segoe UI',10,'bold'), anchor='w')
+				title.grid(row=start+i, column=0, sticky='w', padx=(2,4), pady=1)
+				self._loss_title_labels[k] = title
+				if k in self.loss_detail_label_map:
+					self.loss_detail_label_map[k].grid(row=start+i, column=1, sticky='e', padx=(4,6), pady=1)
+		else:
+			self.toggle_losses_btn.config(text='Mostrar Pérdidas ▶')
+			# Retirar labels
+			if hasattr(self, '_loss_title_labels'):
+				for k,lbl in self._loss_title_labels.items():
+					if lbl.winfo_manager() == 'grid':
+						lbl.grid_forget()
+			for k,lbl in self.loss_detail_label_map.items():
+				if lbl.winfo_manager() == 'grid':
+					lbl.grid_forget()
 
 
 # ------------------------------------------------------------- #
