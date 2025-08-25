@@ -1,6 +1,6 @@
-# Progreso del Simulador LEO/GEO Jamming
+# 📈 Progreso del Simulador LEO/GEO Jamming
 
-## 1. Alcance Actual
+## 1. 📌 Alcance Actual
 
 El script `JammerSimulator.py` proporciona una interfaz educativa para visualizar enlaces LEO y GEO y calcular métricas básicas de propagación y desempeño. Se han incorporado ya las fases 0 y 1 del plan incremental (estructuración interna + geometría/dinámica + Doppler) y se ha añadido la visualización de RTT:
 
@@ -14,7 +14,7 @@ El script `JammerSimulator.py` proporciona una interfaz educativa para visualiza
 - Rate geométrico de cambio de distancia (range rate).
 - Doppler instantáneo y |Doppler| máximo teórico.
 
-### 1.1 Definiciones clave e impacto (formato lineal)
+### 1.1 🧾 Definiciones clave e impacto (formato lineal)
 
 Slant range (d): Distancia en línea de vista GS–satélite. Depende de la geometría (Re, Ro, Δ). Impacto: a mayor d suben FSPL y latencia; bajan C/N0 y C/N.
 
@@ -60,15 +60,33 @@ Visibilidad: Estado binario (E>0). Depende de elevación. Impacto: si no visible
 
 Modo (LEO/GEO): Configuración geométrica seleccionada. Entrada usuario. Impacto: define rango típico y perfil de variación temporal (LEO dinámico, GEO estable).
 
+T_sys [K]: Temperatura de ruido equivalente del sistema receptor (suma de contribuciones RX, cielo, lluvia). Impacto: mayor T_sys eleva N0 y reduce C/N0 para un EIRP y G/T dados.
+
+N0 [dBHz]: Densidad de potencia de ruido térmico ( -228.6 + 10log10(T_sys) ). Impacto: fija el denominador absoluto para C/N0; cualquier aumento reduce margen de Eb/N0.
+
+Rb (Mbps): Tasa de bit útil (tras FEC). Impacto: a mayor Rb con mismo C/N0 baja Eb/N0 porque Eb/N0 = C/N0 - 10log10(Rb). Determina throughput real.
+
+MODCOD: Combinación de modulación + código FEC (ej. QPSK 3/4). Impacto: define eficiencia espectral (bits/Hz) y Eb/N0 requerido mínimo para operar con BER objetivo.
+
+Eb/N0 Requerido (dB): Umbral mínimo de la MODCOD seleccionada. Impacto: comparado con Eb/N0 actual produce el margen operativo.
+
+Margen Eb/N0 (dB): Diferencia Eb/N0_actual - Eb/N0_req. Impacto: >0 indica operación fiable; <0 implica degradación/errores.
+
+Margen MODCOD: Igual que margen Eb/N0 pero con histéresis aplicada para selección adaptativa. Impacto: controla escalado de modulación sin oscilaciones.
+
+Eficiencia Espectral Real [b/Hz]: Rb / BW. Impacto: medida de uso del recurso espectral frente a la MODCOD y Shannon.
+
+Utilización vs Shannon [%]: (Eficiencia real / Eficiencia Shannon)*100. Impacto: indica cercanía al límite teórico; números altos pueden significar poco margen para interferencia futura.
+
 Notas:
 * +10 dB en FSPL (distancia/frecuencia) exige +10 dB entre (EIRP + G/T) para mantener C/N0.
 * Reducir BW sube C/N pero limita throughput (Shannon: C ≈ BW * log2(1+SNR), aproximación no implementada todavía).
 * Latencia no altera C/N pero afecta QoE (gaming, voz) y eficiencia de control.
 * C/N0 es independiente de BW: separa la física del uso espectral.
 
-## 2. Modelos y Fórmulas Implementadas
+## 2. 🔬 Modelos y Fórmulas Implementadas
 
-### 2.1 Geometría Orbital Simplificada (Fase 1)
+### 2.1 🛰️ Geometría Orbital Simplificada (Fase 1)
 
 Parámetros básicos:
 * Re = 6371 km  (radio medio terrestre)
@@ -90,7 +108,7 @@ Visible si E > 0. Horizonte (E = 0) cuando:
 cos(Δ_horizonte) = Re / Ro  ->  Δ_horizonte = arccos(Re/Ro)
 ```
 
-### 2.2 Free Space Path Loss (FSPL)
+### 2.2 📡 Free Space Path Loss (FSPL)
 
 Para frecuencia f (Hz) y distancia D (m):
 ```
@@ -105,7 +123,7 @@ Ejemplo numérico (LEO ~1200 km slant, f=12 GHz):
 
 (Verifica según distancia concreta registrada en CSV; si el CSV indica ~180 dB es porque la distancia usada era ~2,000 km y la fórmula coincide con esa magnitud.)
 
-### 2.3 Latencia de Propagación
+### 2.3 ⏱️ Latencia de Propagación
 ```
 t_one_way_ms = (D / c) * 1000
 t_RTT_ms      = 2 * t_one_way_ms
@@ -114,7 +132,7 @@ Ejemplo: LEO D=2,000 km → \( D=2\times10^6\,m \Rightarrow t_{ow}\approx 6.67\,
 
 GEO típico (≈ 40,000 km): \( t_{ow} ≈ 133 \) ms; RTT ≈ 266 ms.
 
-### 2.4 Dinámica Orbital y Doppler (Fase 1)
+### 2.4 ⚙️ Dinámica Orbital y Doppler (Fase 1)
 
 Velocidad orbital circular (m/s):
 ```
@@ -144,7 +162,7 @@ Tiempo restante de visibilidad (si E>0):
 vis_remaining = Δ_rem / ω_deg   (ω en deg/s)
 ```
 
-### 2.5 Densidad de Potencia Portadora a Ruido (C/N0)
+### 2.5 📶 Densidad de Potencia Portadora a Ruido (C/N0)
 
 Modelo educativo:
 ```
@@ -152,9 +170,24 @@ C/N0[dBHz] = EIRP[dBW] + G/T[dB/K] - FSPL[dB] + 228.6
 ```
 Donde 228.6 dB = \(10\log_{10}(1/k)\) con k constante de Boltzmann.
 
-### 2.6 Relación C/N para un Ancho de Banda B
+### 2.6 🔁 Uplink vs Downlink (principales diferencias)
 
-### 2.7 Bloque de Pérdidas Adicionales (Fase 2)
+Frecuencia: uplink suele más alta (p.ej. 14/30 GHz) → lluvia y atmo pegan más; downlink menor (11–12 / 20 GHz) → menos atenuación relativa.
+
+Potencia origen: uplink (estación / jammer) controla EIRP; downlink depende del transpondedor (ganancia fija + backoff).
+
+G/T relevante: para downlink lo aporta la estación terrestre; para uplink lo aporta el satélite (ruido del front‑end sat transponder + antena caliente).
+
+Pérdidas: lluvia, gases y scintillation distintas por dirección (frecuencia y elevación).
+Saturación: uplink drive define backoff del transpondedor, afectando EIRP downlink.
+
+Interferencia: uplink crítico por agregación multiusuarios; downlink más por interferencia de otros satélites/co‑canales.
+
+Polarización: desajustes pueden diferir según tracking mecánico/beamforming.
+
+Potencia recibida intermedia: cascada C/N_total = (1 / (C/N_uplink + C/N_downlink + C/I + ...))^‑1 (en dB usar conversión a lineal).
+
+### 2.7 🧱 Bloque de Pérdidas Adicionales (Fase 2)
 
 Entradas (todas en dB, inicial 0):
 ```
@@ -176,7 +209,7 @@ Visualización:
 * Sección colapsable (botón) muestra cada componente individual.
 * Export histórico añade columnas: cada pérdida individual, loss_total_extra_db, path_loss_total_db.
 
-### 2.8 Back-off y EIRP Efectivo (Fase 3)
+### 2.8 🔋 Back-off y EIRP Efectivo (Fase 3)
 
 Objetivo: Modelar la diferencia entre la potencia teórica de saturación de un amplificador (TWT / SSPAs / amplificador del jammer) y la potencia realmente operativa cuando se introduce margen (back-off) para mantener linealidad y máscara espectral.
 
@@ -229,7 +262,31 @@ C/N[dB] = C/N0[dBHz] - 10*log10(B)   (B en Hz)
 ```
 Ejemplo: si C/N0 = 70 dBHz y B = 1 MHz → 10 log10(1e6)=60 dB ⇒ C/N ≈ 10 dB.
 
-## 3. Ejemplo Numérico Integrado (LEO)
+### 2.9 🚦 Sistema de Alertas de Calidad (Intermedio previo Fase 4)
+
+Objetivo: Dar feedback rápido sobre viabilidad del enlace sin esperar cálculos de Eb/N0 y margen (Fase 4).
+
+Reglas actuales (basadas en C/N en dB):
+```
+C/N > 15 dB        → Excelente (verde)  – margen amplio para modulaciones de alto orden.
+6 dB ≤ C/N ≤ 15 dB → Aceptable (amarillo) – operativo con modulaciones moderadas / FEC robusto.
+C/N < 6 dB         → Crítico (rojo) – enlace marginal o no viable; revisar EIRP, G/T o pérdidas.
+No visible         → Gris – satélite bajo horizonte, métricas no válidas.
+```
+Implementación:
+* Nueva fila "Estado C/N" en panel de métricas con codificación de color.
+* Export añade columna `cn_quality`.
+* No sustituye futuras métricas de margen (Eb/N0, capacidad) sino que actúa como indicador temprano.
+
+Uso educativo:
+* Permite demostrar sensibilidad del estado a ajustes de back-off, pérdidas atmosféricas o frecuencia.
+* Facilita calibrar parámetros GEO (a menudo inicializan fuera de rango por EIRP / G/T insuficientes).
+
+Limitaciones:
+* Basado solo en C/N; aún no considera interferencia ni requisitos Eb/N0 específicos.
+* Umbrales genéricos; pueden especializarse por servicio (broadcast, datos, HTS) más adelante.
+
+## 3. 🧪 Ejemplo Numérico Integrado (LEO)
 Supongamos:
 - Altitud LEO: 500 km ⇒ \(R_O = 6871\) km.
 - Estación en elevación E = 30°.
@@ -240,18 +297,18 @@ Supongamos:
 3. Latencia ow: ≈ 4–6 ms.
 4. Con EIRP = 53 dBW, G/T = -42 dB/K, FSPL=233 dB: C/N0 ≈ 53 - 42 - 233 + 228.6 ≈ 6.6 dBHz (muy bajo, ilustra necesidad de mejoras de enlace – en práctica habría más ganancias y pérdidas adicionales que ajustar).
 
-## 4. Flujo de Cálculo en el Código (actualizado Fases 0-1)
+## 4. 🔁 Flujo de Cálculo en el Código (actualizado Fases 0-1)
 1. Se captura el ángulo orbital (LEO) o longitud relativa (GEO).
 2. Se calcula \( \Delta \) y luego slant range y elevación.
 3. Bloques modulares: (a) actualización de parámetros, (b) geometría/dinámica orbital, (c) doppler, (d) métricas de enlace (FSPL, latencia, C/N0, C/N), (e) render de tabla y (f) logging histórico.
 4. Si Elevación > 0°: se calculan FSPL, latencia OW/RTT, C/N0, C/N y Doppler.
 5. Se actualiza panel visual y se registra en historial para exportación.
 
-## 5. Exportación de Datos
+## 5. 📤 Exportación de Datos
 - CSV o XLSX con cabeceras legibles (ej: `FSPL [dB]`, `C/N0 [dBHz]`).
 - XLSX aplica estilo (negrita, cursiva, tamaño 13) a la fila de cabeceras.
 
-## 6. Limitaciones / Próximos Pasos
+## 6. ⚠️ Limitaciones / Próximos Pasos
 - El bloque de pérdidas es agregado y no separa uplink/downlink ni dependencia de frecuencia/elevación real (modelos de atmósfera y lluvia aún simplificados a un único término Rain_att).
 - Falta todavía el desglose de temperatura de ruido (T_rx, cielo claro, exceso lluvia) y cálculo de T_sys explícito (Fase 4).
 - No se calcula Eb/N0, margen frente a requisito ni capacidad Shannon: previsto en Fase 4.
@@ -259,7 +316,7 @@ Supongamos:
 - Elevación supone GS en ecuador (latitud 0°) para simplificar geometría.
 - No se distinguen aún canales forward / return ni potencias separadas en ambos sentidos.
 
-## 7. Próximas Mejores Extensiones Sugeridas
+## 7. 🧭 Próximas Mejores Extensiones Sugeridas
 1. (Completo) Pérdidas adicionales y Path Loss Total (Fase 2).
 2. (Completo) RTT visible (Fase 1) y Back‑off / EIRP efectivo (Fase 3).
 3. Bloque de ruido detallado: T_sys, N0, Eb/N0, Margen, capacidad Shannon, adaptación (Fase 4).
@@ -270,12 +327,50 @@ Supongamos:
 8. Validación y sanitización de entradas (Fase 9); documentación extendida final (Fase 10).
 
 ---
-## 8. Estado de Fases (Resumen)
+## 8. 🗂️ Estado de Fases (Resumen)
 
 - Fase 0: Estructuras de contenedores (losses, noise, power, throughput, latencies, coverage) y helpers dB. (Completado)
 - Fase 1: Geometría, dinámica, Doppler, periodo, visibilidad restante y RTT. (Completado)
 - Fase 2: Pérdidas configurables, Path Loss Total afectando C/N0, export ampliado. (Completado)
 - Fase 3: Back-off, EIRP efectivo, override manual, impacto directo en C/N0. (Completado)
-- Próxima en cola: Fase 4 (ruido detallado, T_sys, N0, Eb/N0, margen, capacidad, preparación para interferencia).
+- Fase 4: Bloque Ruido y Rendimiento (T_sys, N0, Eb/N0, margen frente a requisito, capacidad Shannon, eficiencia espectral real, utilización). (Completado)
+- Fase 5: Latencias detalladas (procesamiento + switching) integradas en métricas totales OW/RTT y módulo MODCOD adaptativo (tabla en JSON, auto-selección con histéresis, margen MODCOD y estado). (Completado)
+
+### 8.1 🎧 Detalle Fase 4 – Ruido y Rendimiento
+Métricas añadidas:
+* T_sys = T_rx + T_cielo + T_exceso_lluvia.
+* N0_dBHz = -228.6 + 10 log10(T_sys).
+* Eb/N0 = C/N0 - 10 log10(Rb).
+* Margen Eb/N0 = Eb/N0 - Eb/N0_req.
+* Capacidad Shannon C = BW * log2(1 + C/N_lin).
+* Eficiencia real = Rb / BW, Utilización = (Eficiencia real / Eficiencia Shannon) * 100.
+
+Colores de margen Eb/N0: >3 dB OK (verde), 0–3 dB Justo (ámbar), <0 Insuficiente (rojo).
+Export: columnas T_sys_K, N0_dBHz, EbN0_dB, EbN0_req_dB, Eb_margin_dB, Shannon_capacity_Mbps, Spectral_eff_real_bps_hz, Utilization_pct.
+
+### 8.2 🧮 Detalle Fase 5 – Latencias y MODCOD Adaptativo
+Parámetros añadidos al JSON (`Latencies`, `MODCOD`).
+
+Latencias:
+* Entradas: Processing_delay_ms, Switching_delay_ms.
+* Total OW = Prop OW + Proc + Switching.
+* Total RTT = 2*Prop OW + 2*(Proc + Switching).
+* Nuevas columnas export: latency_total_ms_one_way, latency_total_rtt_ms.
+
+MODCOD Adaptativo:
+* Tabla JSON con: name, modulation, bits_per_symbol, code_rate, ebn0_req_db.
+* Eficiencia calculada = bits_per_symbol * code_rate (b/Hz asumido símbolo/Hz).
+* Auto-selección: elige la MODCOD de mayor eficiencia con Eb/N0_req <= Eb/N0_actual - histéresis. Si ninguna cumple → la más robusta (menor Eb/N0_req).
+* Histéresis configurada (hysteresis_db) para evitar oscilaciones.
+* Actualiza automáticamente Rb = eficiencia * BW y Eb/N0_req.
+* Métricas nuevas: modcod_name, modcod_eff_bps_hz, modcod_ebn0_req_db, modcod_margin_db, modcod_status (Excelente / Aceptable / Crítico / Insuficiente).
+
+Estados MODCOD (margen = Eb/N0_actual - Eb/N0_req):
+* >3 dB Excelente (verde)
+* 1–3 dB Aceptable (ámbar)
+* 0–1 dB Crítico (naranja)
+* <0 dB Insuficiente (rojo)
+
+Estas extensiones preparan la futura integración uplink/downlink e interferencia (C/(N+I)) al contar ya con una capa de adaptación de capa física y latencias no puramente de propagación.
 
 *Documento vivo – actualizar conforme se añadan nuevas funcionalidades.*

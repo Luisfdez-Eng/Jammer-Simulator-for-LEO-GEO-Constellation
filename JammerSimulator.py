@@ -69,7 +69,6 @@ class ParameterLoader:
 			ref = ref[p]
 		return ref
 
-
 # ------------------------------------------------------------- #
 # Modelo básico de un satélite (ahora solo necesitamos altitud) #
 # ------------------------------------------------------------- #
@@ -247,6 +246,63 @@ class SimulatorGUI:
 		self.manual_eirp_entry = ttk.Entry(row_pf4, textvariable=self.manual_eirp_var, width=8)
 		self.manual_eirp_entry.pack(side='right')
 		sep2 = ttk.Separator(left, orient='horizontal'); sep2.pack(fill='x', pady=6)
+		# -------- Ruido (Entradas) --------
+		ruido_frame = ttk.LabelFrame(left, text='Ruido (Entradas)')
+		ruido_frame.pack(fill='x', pady=6)
+		self.t_rx_var = tk.DoubleVar(value=self.core.noise['T_rx'])
+		self.t_sky_var = tk.DoubleVar(value=self.core.noise['T_clear_sky'])
+		self.t_rain_var = tk.DoubleVar(value=self.core.noise['T_rain_excess'])
+		row_n1 = ttk.Frame(ruido_frame); row_n1.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_n1, text='T RX (K):', font=bold_lbl).pack(side='left')
+		self.t_rx_entry = ttk.Entry(row_n1, textvariable=self.t_rx_var, width=7); self.t_rx_entry.pack(side='right')
+		row_n2 = ttk.Frame(ruido_frame); row_n2.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_n2, text='T Cielo (K):', font=bold_lbl).pack(side='left')
+		self.t_sky_entry = ttk.Entry(row_n2, textvariable=self.t_sky_var, width=7); self.t_sky_entry.pack(side='right')
+		row_n3 = ttk.Frame(ruido_frame); row_n3.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_n3, text='T Exceso Lluvia (K):', font=bold_lbl).pack(side='left')
+		self.t_rain_entry = ttk.Entry(row_n3, textvariable=self.t_rain_var, width=7); self.t_rain_entry.pack(side='right')
+		# -------- MODCOD Adaptativo (Fase 5) --------
+		mod_frame = ttk.LabelFrame(left, text='Modulación / Coding (Fase 5)')
+		mod_frame.pack(fill='x', pady=6)
+		self.modcod_auto_var = tk.BooleanVar(value=self.core.params.get(["MODCOD","auto_default"]))
+		self.modcod_selected_var = tk.StringVar(value=self.core.params.get(["MODCOD","default"]))
+		mod_top = ttk.Frame(mod_frame); mod_top.pack(fill='x', padx=2, pady=1)
+		mod_table = [e['name'] for e in self.core.params.get(["MODCOD","table"]) ]
+		self.modcod_combo = ttk.Combobox(mod_top, values=mod_table, textvariable=self.modcod_selected_var, state='readonly', width=14)
+		self.modcod_combo.pack(side='left')
+		self.modcod_combo.bind('<<ComboboxSelected>>', lambda e: self.update_metrics())
+		auto_chk = ttk.Checkbutton(mod_top, text='Auto', variable=self.modcod_auto_var, command=lambda: self.update_metrics())
+		auto_chk.pack(side='right')
+		# Parámetros dependientes de MODCOD (solo lectura)
+		mod_mid1 = ttk.Frame(mod_frame); mod_mid1.pack(fill='x', padx=2, pady=1)
+		self.rb_var = tk.DoubleVar(value=self.core.throughput['Rb_Mbps'])  # interno
+		ttk.Label(mod_mid1, text='Rb (Mbps):', font=bold_lbl).pack(side='left')
+		self.rb_value_label = ttk.Label(mod_mid1, text=f"{self.rb_var.get():.3f}", font=bold_lbl, width=8, anchor='e')
+		self.rb_value_label.pack(side='right')
+		mod_mid2 = ttk.Frame(mod_frame); mod_mid2.pack(fill='x', padx=2, pady=1)
+		self.ebn0_req_var = tk.DoubleVar(value=self.core.throughput['EbN0_req_dB'])  # interno
+		ttk.Label(mod_mid2, text='Eb/N0 Req (dB):', font=bold_lbl).pack(side='left')
+		self.ebn0_req_value_label = ttk.Label(mod_mid2, text=f"{self.ebn0_req_var.get():.2f}", font=bold_lbl, width=8, anchor='e')
+		self.ebn0_req_value_label.pack(side='right')
+		mod_mid3 = ttk.Frame(mod_frame); mod_mid3.pack(fill='x', padx=2, pady=1)
+		self.modcod_eff_label = ttk.Label(mod_mid3, text='Eff: -- b/Hz', font=bold_lbl)
+		self.modcod_eff_label.pack(side='left')
+		self.modcod_req_label = ttk.Label(mod_mid3, text='Eb/N0 Req: -- dB', font=bold_lbl)
+		self.modcod_req_label.pack(side='right')
+		mod_bot = ttk.Frame(mod_frame); mod_bot.pack(fill='x', padx=2, pady=1)
+		self.modcod_status_label = ttk.Label(mod_bot, text='Estado: --', font=bold_lbl)
+		self.modcod_status_label.pack(side='left')
+		# -------- Latencias Detalladas (Fase 5) --------
+		lat_frame = ttk.LabelFrame(left, text='Latencias (Fase 5)')
+		lat_frame.pack(fill='x', pady=6)
+		self.proc_lat_var = tk.DoubleVar(value=self.core.params.get(["Latencies","Processing_delay_ms"]))
+		self.switch_lat_var = tk.DoubleVar(value=self.core.params.get(["Latencies","Switching_delay_ms"]))
+		row_l1 = ttk.Frame(lat_frame); row_l1.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_l1, text='Proc (ms):', font=bold_lbl).pack(side='left')
+		self.proc_entry = ttk.Entry(row_l1, textvariable=self.proc_lat_var, width=6); self.proc_entry.pack(side='right')
+		row_l2 = ttk.Frame(lat_frame); row_l2.pack(fill='x', padx=2, pady=1)
+		ttk.Label(row_l2, text='Switch (ms):', font=bold_lbl).pack(side='left')
+		self.switch_entry = ttk.Entry(row_l2, textvariable=self.switch_lat_var, width=6); self.switch_entry.pack(side='right')
 		# ---------------- Inputs Pérdidas (Fase 2) ----------------
 		loss_frame = ttk.LabelFrame(left, text='Pérdidas (dB)')
 		loss_frame.pack(fill='x', pady=6)
@@ -279,9 +335,18 @@ class SimulatorGUI:
 		self.orbit_slider.bind('<ButtonPress-1>', lambda e: self._begin_slider()); self.orbit_slider.bind('<ButtonRelease-1>', lambda e: self._end_slider())
 		self.canvas.bind('<Configure>', lambda e: self._draw_static())
 		right = ttk.Frame(self.mainframe); right.pack(side='left', fill='y')
-		# Panel de métricas tabular
-		self.metrics_panel = ttk.Frame(right)
-		self.metrics_panel.pack(fill='both', expand=True)
+		# Panel de métricas desplazable (canvas + scrollbar)
+		self.metrics_canvas = tk.Canvas(right, borderwidth=0, highlightthickness=0)
+		self.metrics_scrollbar = ttk.Scrollbar(right, orient='vertical', command=self.metrics_canvas.yview)
+		self.metrics_canvas.configure(yscrollcommand=self.metrics_scrollbar.set)
+		self.metrics_canvas.pack(side='left', fill='both', expand=True)
+		self.metrics_scrollbar.pack(side='right', fill='y')
+		self.metrics_panel = ttk.Frame(self.metrics_canvas)
+		self._metrics_window = self.metrics_canvas.create_window((0,0), window=self.metrics_panel, anchor='nw')
+		self.metrics_panel.bind('<Configure>', lambda e: self.metrics_canvas.configure(scrollregion=self.metrics_canvas.bbox('all')))
+		self.metrics_canvas.bind('<Configure>', lambda e: self.metrics_canvas.itemconfigure(self._metrics_window, width=e.width))
+		# Soporte rueda ratón (Windows delta 120)
+		self.metrics_canvas.bind_all('<MouseWheel>', self._on_mousewheel)
 		self._init_metrics_table()
 		# Botón colapsar pérdidas
 		self.show_losses = False
@@ -332,7 +397,9 @@ class SimulatorGUI:
 			'fspl_db','loss_total_extra_db','path_loss_total_db',
 			'RFL_feeder','AML_misalignment','AA_atmos','Rain_att','PL_polarization','L_pointing','L_impl',
 			'eirp_sat_dbw','input_backoff_db','output_backoff_db','eirp_dbw','manual_eirp_override',
-			'latency_ms_one_way','cn0_dbhz','cn_db','gt_dbk','frequency_ghz','bandwidth_mhz'
+			'latency_ms_one_way','latency_total_ms_one_way','latency_total_rtt_ms','cn0_dbhz','cn_db','gt_dbk','frequency_ghz','bandwidth_mhz',
+			'T_sys_K','N0_dBHz','EbN0_dB','EbN0_req_dB','Eb_margin_dB','Shannon_capacity_Mbps','Spectral_eff_real_bps_hz','Utilization_pct'
+			,'modcod_name','modcod_eff_bps_hz','modcod_ebn0_req_db','modcod_margin_db','modcod_status'
 		]
 		label_map = {
 			'time_s':'TIME [s]',
@@ -358,12 +425,28 @@ class SimulatorGUI:
 			'eirp_dbw':'EIRP EFF [dBW]',
 			'manual_eirp_override':'MAN EIRP OVERRIDE (1/0)',
 			'latency_ms_one_way':'LATENCY OW [ms]',
+			'latency_total_ms_one_way':'LATENCY TOTAL OW [ms]',
+			'latency_total_rtt_ms':'LATENCY TOTAL RTT [ms]',
 			'cn0_dbhz':'C/N0 [dBHz]',
 			'cn_db':'C/N [dB]',
+			'cn_quality':'C/N QUALITY',
 			'eirp_dbw':'EIRP [dBW]',
 			'gt_dbk':'G/T [dB/K]',
 			'frequency_ghz':'FREQ [GHz]',
 			'bandwidth_mhz':'BW [MHz]',
+			'T_sys_K':'T_SYS [K]',
+			'N0_dBHz':'N0 [dBHz]',
+			'EbN0_dB':'EBN0 [dB]',
+			'EbN0_req_dB':'EBN0 REQ [dB]',
+			'Eb_margin_dB':'EB MARGIN [dB]',
+			'Shannon_capacity_Mbps':'C_SHANNON [Mbps]',
+			'Spectral_eff_real_bps_hz':'EFF REAL [b/Hz]',
+			'Utilization_pct':'UTILIZATION [%]',
+			'modcod_name':'MODCOD',
+			'modcod_eff_bps_hz':'MODCOD EFF [b/Hz]',
+			'modcod_ebn0_req_db':'MODCOD EBN0 REQ [dB]',
+			'modcod_margin_db':'MODCOD MARGIN [dB]',
+			'modcod_status':'MODCOD STATUS',
 		}
 		# Asegurar que campos adicionales (si hubieran) no se pierdan
 		for k in self.history[0].keys():
@@ -417,12 +500,22 @@ class SimulatorGUI:
 			('Latencia RTT [ms]', '—'),
 			('C/N0 [dBHz]', '—'),
 			('C/N [dB]', '—'),
+			('Estado C/N', '—'),
 			('G/T [dB/K]', '—'),
 			('— POTENCIA Y BACK-OFF —','section'),
 			('EIRP Saturado [dBW]', '—'),
 			('Back-off Entrada [dB]', '—'),
 			('Back-off Salida [dB]', '—'),
 			('EIRP Efectivo [dBW]', '—'),
+			('— RUIDO Y RENDIMIENTO —','section'),
+			('Temperatura Sistema T_sys [K]', '—'),
+			('Densidad Ruido N0 [dBHz]', '—'),
+			('Eb/N0 [dB]', '—'),
+			('Eb/N0 Requerido [dB]', '—'),
+			('Margen Eb/N0 [dB]', '—'),
+			('Capacidad Shannon [Mbps]', '—'),
+			('Eficiencia Espectral Real [b/Hz]', '—'),
+			('Utilización vs Shannon [%]', '—'),
 			('— GEOMETRÍA ORBITAL —','section'),
 			('Ángulo Central Δ [°]', '—'),
 			('Radio Orbital [km]', '—'),
@@ -570,6 +663,7 @@ class SimulatorGUI:
 			if not self.user_adjusting_slider: self.orbit_slider_var.set(self.orbit_angle_deg)
 		self.update_metrics(); self._draw_dynamic(); self.root.after(300, self._animate)
 
+
 	# ----------------------------- BLOQUES MODULARES (Fases 0-1) ----------------------------- #
 	def update_metrics(self):
 		"""Orquesta el refresco: parámetros -> geometría -> doppler -> enlace -> render tabla."""
@@ -577,6 +671,10 @@ class SimulatorGUI:
 		self._update_geometry_block()
 		self._update_doppler_block()
 		self._update_link_block()
+		self._update_latency_block()  # Fase 5
+		# Primero seleccionamos MODCOD (deriva Rb y Eb/N0 requerido) y luego calculamos performance real
+		self._update_modcod_block()  # Fase 5 (genera Rb_Mbps & EbN0_req)
+		self._update_performance_block()  # Fase 4 (usa Rb derivado)
 		self._render_metrics()
 		self._append_history_row()
 
@@ -712,6 +810,182 @@ class SimulatorGUI:
 			'path_loss_total_db': path_loss_total,
 		}
 
+	def _update_latency_block(self):
+		"""Fase 5: latencias totales (propagación + procesamiento + switching)."""
+		try:
+			proc_ms = max(0.0, float(self.proc_lat_var.get()))
+		except Exception:
+			proc_ms = 0.0
+		try:
+			switch_ms = max(0.0, float(self.switch_lat_var.get()))
+		except Exception:
+			switch_ms = 0.0
+		self.core.latencies['Processing_delay_ms'] = proc_ms
+		self.core.latencies['Switching_delay_ms'] = switch_ms
+		prop_ow = self.link_metrics.get('latency_ms_ow', float('nan'))
+		if not math.isnan(prop_ow):
+			total_ow = prop_ow + proc_ms + switch_ms
+			total_rtt = 2*prop_ow + 2*(proc_ms + switch_ms)
+			self.link_metrics['total_latency_ow_ms'] = total_ow
+			self.link_metrics['total_latency_rtt_ms'] = total_rtt
+
+	def _update_modcod_block(self):
+		"""Fase 5: selección adaptativa de MODCOD y actualización de Rb/EbN0_req."""
+		mod_table = self.core.params.get(["MODCOD","table"])
+		# Construir mapa nombre->entry con eficiencia
+		best = None
+		current_ebn0 = None
+		if hasattr(self,'perf_metrics'):
+			current_ebn0 = self.perf_metrics.get('EbN0_dB')
+		# Calcular eficiencias
+		for entry in mod_table:
+			bps = entry['bits_per_symbol'] * entry['code_rate']  # bits útiles por símbolo
+			entry['efficiency_bps_hz'] = bps  # asumimos Nyquist 1 símbolo/Hz
+		# Auto selección
+		if self.modcod_auto_var.get() and current_ebn0 is not None and not math.isnan(current_ebn0):
+			hyst = self.core.params.get(["MODCOD","hysteresis_db"])
+			candidates = []
+			for e in mod_table:
+				if current_ebn0 - e['ebn0_req_db'] >= hyst:
+					candidates.append(e)
+			if candidates:
+				best = max(candidates, key=lambda x: x['efficiency_bps_hz'])
+			else:
+				# Ninguna cumple margen; escoger la más robusta (menor req)
+				best = min(mod_table, key=lambda x: x['ebn0_req_db'])
+			self.modcod_selected_var.set(best['name'])
+		else:
+			# Manual: encontrar entry activo
+			for e in mod_table:
+				if e['name'] == self.modcod_selected_var.get():
+					best = e; break
+		if not best:
+			best = mod_table[0]
+		self.modcod_active = best
+		# Actualizar requerimiento Eb/N0 y Rb
+		self.core.throughput['EbN0_req_dB'] = best['ebn0_req_db']
+		# Recalcular Rb en función de BW y eficiencia modcod (bits/Hz)
+		bw_hz = self.core.calc.default_bandwidth_hz
+		Rb_bps = best['efficiency_bps_hz'] * bw_hz
+		self.core.throughput['Rb_Mbps'] = Rb_bps / 1e6
+		# Actualizar variables y labels (siempre solo lectura)
+		self.rb_var.set(self.core.throughput['Rb_Mbps'])
+		self.ebn0_req_var.set(self.core.throughput['EbN0_req_dB'])
+		if hasattr(self,'rb_value_label'):
+			self.rb_value_label.config(text=f"{self.core.throughput['Rb_Mbps']:.3f}")
+		if hasattr(self,'ebn0_req_value_label'):
+			self.ebn0_req_value_label.config(text=f"{self.core.throughput['EbN0_req_dB']:.2f}")
+		# Margen MODCOD
+		if current_ebn0 is not None and not math.isnan(current_ebn0):
+			self.modcod_margin_db = current_ebn0 - best['ebn0_req_db']
+			if self.modcod_margin_db > 3:
+				self.modcod_status = 'Excelente'
+			elif self.modcod_margin_db >= 1:
+				self.modcod_status = 'Aceptable'
+			elif self.modcod_margin_db >= 0:
+				self.modcod_status = 'Crítico'
+			else:
+				self.modcod_status = 'Insuficiente'
+		else:
+			self.modcod_margin_db = float('nan')
+			self.modcod_status = '—'
+		# Actualizar labels MODCOD
+		self.modcod_eff_label.config(text=f"Eff: {best['efficiency_bps_hz']:.3f} b/Hz")
+		self.modcod_req_label.config(text=f"Eb/N0 Req: {best['ebn0_req_db']:.2f} dB")
+		color_map = {'Excelente':'#007700','Aceptable':'#c08000','Crítico':'#b05000','Insuficiente':'#b00000','—':'#666666'}
+		self.modcod_status_label.config(text=f"Estado: {self.modcod_status}", foreground=color_map.get(self.modcod_status,'#444444'))
+
+	def _add_dynamic_metric_row(self, display_name: str):
+		"""Inserta una nueva fila de métrica al final si no existía."""
+		if display_name in self.metric_labels:
+			return
+		# Buscar fila máxima actual
+		max_row = 0
+		for child in self.metrics_panel.grid_slaves():
+			try:
+				max_row = max(max_row, int(child.grid_info().get('row',0)))
+			except Exception:
+				pass
+		row = max_row + 1
+		font_label = ('Segoe UI', 10, 'bold'); font_value = ('Consolas', 11)
+		lbl = ttk.Label(self.metrics_panel, text=display_name+':', font=font_label, anchor='w')
+		lbl.grid(row=row, column=0, sticky='w', padx=(2,4), pady=1)
+		val_lbl = ttk.Label(self.metrics_panel, text='—', font=font_value, foreground='#004080', anchor='e')
+		val_lbl.grid(row=row, column=1, sticky='e', padx=(4,6), pady=1)
+		self.metric_labels[display_name] = val_lbl
+
+	def _update_performance_block(self):
+		"""Fase 4: calcula T_sys, N0, Eb/N0, margen y métricas de capacidad.
+
+		T_sys = suma de temperaturas componentes (simplificado).
+		N0_dBHz = 10log10(k*T_sys) = -198.6 + 10log10(T_sys) (porque 228.6 = 10log10(1/k)).
+		Eb/N0 = C/N0 - 10log10(Rb) (Rb en bit/s)
+		Capacidad Shannon usando C/N lineal (=10^(C/N/10)).
+		"""
+		# Leer inputs ruido / throughput
+		try:
+			self.core.noise['T_rx'] = max(0.0, float(self.t_rx_var.get()))
+		except Exception:
+			self.core.noise['T_rx'] = 0.0
+		try:
+			self.core.noise['T_clear_sky'] = max(0.0, float(self.t_sky_var.get()))
+		except Exception:
+			self.core.noise['T_clear_sky'] = 0.0
+		try:
+			self.core.noise['T_rain_excess'] = max(0.0, float(self.t_rain_var.get()))
+		except Exception:
+			self.core.noise['T_rain_excess'] = 0.0
+		T_sys = self.core.noise['T_rx'] + self.core.noise['T_clear_sky'] + self.core.noise['T_rain_excess']
+		if T_sys <= 0: T_sys = float('nan')
+		# N0: kT => 10log10(k) ~ -228.6 dBW/Hz; pero usamos C/N0 fórmula eirp+G/T - L + 228.6 => N0_dBHz = - (G/T - 10log10(T_sys))? Para simplicidad educativa usamos:
+		# N0_dBHz (dBW/Hz) = -228.6 + 10log10(T_sys)  (valor absoluto de densidad de ruido)
+		if not math.isnan(T_sys):
+			N0_dBHz = -228.6 + 10*math.log10(T_sys)
+		else:
+			N0_dBHz = float('nan')
+		# Throughput
+		# (Rb y Eb/N0 Req ya fueron fijados por el bloque MODCOD; no se leen entradas del usuario)
+		Rb_bps = self.core.throughput['Rb_Mbps'] * 1e6
+		cn0 = self.link_metrics.get('cn0_dbhz', float('nan'))
+		if not math.isnan(cn0) and Rb_bps > 0:
+			EbN0_dB = cn0 - 10*math.log10(Rb_bps)
+		else:
+			EbN0_dB = float('nan')
+		EbN0_req = self.core.throughput['EbN0_req_dB']
+		margin_dB = EbN0_dB - EbN0_req if not math.isnan(EbN0_dB) else float('nan')
+		# Capacidad Shannon
+		cn_db = self.link_metrics.get('cn_db', float('nan'))
+		if not math.isnan(cn_db):
+			cn_lin = 10**(cn_db/10.0)
+			BW_hz = self.core.calc.default_bandwidth_hz
+			C_shannon_bps = BW_hz * math.log2(1+cn_lin)
+			C_shannon_Mbps = C_shannon_bps / 1e6
+			eta_shannon = (C_shannon_bps / BW_hz) if BW_hz>0 else float('nan')  # bits/s/Hz
+			eta_real = (Rb_bps / BW_hz) if BW_hz>0 else float('nan')
+			util_pct = (eta_real / eta_shannon * 100.0) if eta_shannon and not math.isnan(eta_shannon) and eta_shannon>0 else float('nan')
+		else:
+			C_shannon_Mbps = float('nan'); eta_shannon = float('nan'); eta_real = float('nan'); util_pct = float('nan')
+		self.perf_metrics = {
+			'T_sys_K': T_sys,
+			'N0_dBHz': N0_dBHz,
+			'EbN0_dB': EbN0_dB,
+			'EbN0_req_dB': EbN0_req,
+			'Eb_margin_dB': margin_dB,
+			'Shannon_capacity_Mbps': C_shannon_Mbps,
+			'Spectral_eff_real_bps_hz': eta_real,
+			'Utilization_pct': util_pct,
+		}
+
+	def _assess_eb_margin(self, margin_db: float):
+		if isinstance(margin_db, float) and math.isnan(margin_db):
+			return ("—", '#666666')
+		if margin_db > 3.0:
+			return ("OK", '#007700')
+		elif margin_db >= 0.0:
+			return ("Justo", '#c08000')
+		else:
+			return ("Insuficiente", '#b00000')
+
 	def _render_metrics(self):
 		def fmt(v, pattern="{:.2f}"):
 			return '—' if (isinstance(v, float) and math.isnan(v)) else (pattern.format(v) if isinstance(v, (int, float)) else str(v))
@@ -725,9 +999,27 @@ class SimulatorGUI:
 		self.metric_labels['Latencia Ida [ms]'].config(text=fmt(self.link_metrics['latency_ms_ow']))
 		rtt_ms = self.link_metrics['latency_ms_ow'] * 2 if not math.isnan(self.link_metrics['latency_ms_ow']) else float('nan')
 		self.metric_labels['Latencia RTT [ms]'].config(text=fmt(rtt_ms))
+		# Fase 5: latencias totales
+		if 'total_latency_ow_ms' in self.link_metrics:
+			# Añadimos/actualizamos dinámicamente labels si no existen
+			if 'Latencia Total Ida [ms]' not in self.metric_labels:
+				self._add_dynamic_metric_row('Latencia Total Ida [ms]')
+			if 'Latencia Total RTT [ms]' not in self.metric_labels:
+				self._add_dynamic_metric_row('Latencia Total RTT [ms]')
+			self.metric_labels['Latencia Total Ida [ms]'].config(text=fmt(self.link_metrics['total_latency_ow_ms']))
+			self.metric_labels['Latencia Total RTT [ms]'].config(text=fmt(self.link_metrics['total_latency_rtt_ms']))
+		else:
+			# Si invisibles y existen, mostrar guion
+			if 'Latencia Total Ida [ms]' in self.metric_labels:
+				self.metric_labels['Latencia Total Ida [ms]'].config(text='—')
+			if 'Latencia Total RTT [ms]' in self.metric_labels:
+				self.metric_labels['Latencia Total RTT [ms]'].config(text='—')
 		self.metric_labels['C/N0 [dBHz]'].config(text=fmt(self.link_metrics['cn0_dbhz']))
 		self.metric_labels['C/N [dB]'].config(text=fmt(self.link_metrics['cn_db']))
 		self.metric_labels['G/T [dB/K]'].config(text=f"{self.core.gt_dbk:.1f}")
+		status_txt, color = self._assess_cn(self.link_metrics['cn_db'])
+		self.metric_labels['Estado C/N'].config(text=status_txt, foreground=color)
+
 		# Potencia / Backoff
 		self.metric_labels['EIRP Saturado [dBW]'].config(text=f"{self.power_metrics.get('eirp_sat', float('nan')):.1f}")
 		self.metric_labels['Back-off Entrada [dB]'].config(text=f"{self.power_metrics.get('input_bo', float('nan')):.1f}")
@@ -749,10 +1041,34 @@ class SimulatorGUI:
 		# Pérdidas
 		self.metric_labels['Σ Pérdidas Extra [dB]'].config(text=fmt(self.link_metrics.get('loss_total_extra_db', float('nan'))))
 		self.metric_labels['Path Loss Total [dB]'].config(text=fmt(self.link_metrics.get('path_loss_total_db', float('nan'))))
+		# Ruido y rendimiento
+		if hasattr(self, 'perf_metrics'):
+			self.metric_labels['Temperatura Sistema T_sys [K]'].config(text=fmt(self.perf_metrics['T_sys_K'], "{:.1f}"))
+			self.metric_labels['Densidad Ruido N0 [dBHz]'].config(text=fmt(self.perf_metrics['N0_dBHz'], "{:.1f}"))
+			self.metric_labels['Eb/N0 [dB]'].config(text=fmt(self.perf_metrics['EbN0_dB'], "{:.2f}"))
+			self.metric_labels['Eb/N0 Requerido [dB]'].config(text=f"{self.perf_metrics['EbN0_req_dB']:.2f}")
+			self.metric_labels['Margen Eb/N0 [dB]'].config(text=fmt(self.perf_metrics['Eb_margin_dB'], "{:.2f}"), foreground=self._assess_eb_margin(self.perf_metrics['Eb_margin_dB'])[1])
+			self.metric_labels['Capacidad Shannon [Mbps]'].config(text=fmt(self.perf_metrics['Shannon_capacity_Mbps'], "{:.2f}"))
+			self.metric_labels['Eficiencia Espectral Real [b/Hz]'].config(text=fmt(self.perf_metrics['Spectral_eff_real_bps_hz'], "{:.3f}"))
+			self.metric_labels['Utilización vs Shannon [%]'].config(text=fmt(self.perf_metrics['Utilization_pct'], "{:.1f}"))
 		if getattr(self, 'show_losses', False) and hasattr(self, 'loss_detail_label_map'):
 			for k,v in self.core.losses.items():
 				if k in self.loss_detail_label_map:
 					self.loss_detail_label_map[k].config(text=fmt(v, "{:.2f}"))
+
+	def _assess_cn(self, cn_db: float):
+		if isinstance(cn_db, float) and math.isnan(cn_db):
+			return ("No visible", "#666666")
+		try:
+			val = float(cn_db)
+		except Exception:
+			return ("—", "#666666")
+		if val > 15.0:
+			return ("Excelente", "#007700")
+		elif val >= 6.0:
+			return ("Aceptable", "#c08000")
+		else:
+			return ("Crítico", "#b00000")
 
 	def _append_history_row(self):
 		if self.running and self.start_time is not None:
@@ -786,6 +1102,24 @@ class SimulatorGUI:
 			row['path_loss_total_db'] = round(pl_total,2) if pl_total is not None and not math.isnan(pl_total) else None
 			for k,v in self.core.losses.items():
 				row[k] = round(v,2)
+			row['cn_quality'] = self._assess_cn(cn)[0] if cn is not None else None
+			# Métricas rendimiento
+			if hasattr(self, 'perf_metrics'):
+				pm = self.perf_metrics
+				for key in ['T_sys_K','N0_dBHz','EbN0_dB','EbN0_req_dB','Eb_margin_dB','Shannon_capacity_Mbps','Spectral_eff_real_bps_hz','Utilization_pct']:
+					val = pm.get(key)
+					row[key] = None if (isinstance(val,float) and math.isnan(val)) else (round(val,3) if isinstance(val,(int,float)) else val)
+			# MODCOD
+			if hasattr(self, 'modcod_active'):
+				row['modcod_name'] = self.modcod_active.get('name')
+				row['modcod_eff_bps_hz'] = round(self.modcod_active.get('efficiency_bps_hz', float('nan')),3)
+				row['modcod_ebn0_req_db'] = round(self.modcod_active.get('ebn0_req_db', float('nan')),2)
+				row['modcod_margin_db'] = round(self.modcod_margin_db,2) if hasattr(self,'modcod_margin_db') else None
+				row['modcod_status'] = self.modcod_status if hasattr(self,'modcod_status') else None
+			# Latencias totales
+			if 'total_latency_ow_ms' in self.link_metrics:
+				row['latency_total_ms_one_way'] = round(self.link_metrics['total_latency_ow_ms'],3)
+				row['latency_total_rtt_ms'] = round(self.link_metrics['total_latency_rtt_ms'],3)
 			self.history.append(row)
 
 	def _toggle_losses(self):
@@ -824,6 +1158,13 @@ class SimulatorGUI:
 			for k,lbl in self.loss_detail_label_map.items():
 				if lbl.winfo_manager() == 'grid':
 					lbl.grid_forget()
+
+
+	def _on_mousewheel(self, event):
+		# Normalizar delta (Windows suele ser múltiplos de 120)
+		if hasattr(self, 'metrics_canvas'):
+			delta = int(-1*(event.delta/120))
+			self.metrics_canvas.yview_scroll(delta, 'units')
 
 
 # ------------------------------------------------------------- #

@@ -2,10 +2,10 @@
     "LEO": {
 
         "EIRP": {
-            "base": 48.0,
-            "min": 35.0,
+            "base": 50.0,
+            "min": 40.0,
             "max": 55.0,
-            "IdealEIRP_Onejammer": 52.0
+            "IdealEIRP_Onejammer": 54.0
         },
         "Altitude": 550000,
         "ElevationAngle": {
@@ -19,31 +19,50 @@
             "max": 1815000
         },
         "G_T": {
-            "base": -18.0,
-            "min": -25.0,
-            "max": -10.0
+            "base": -5.0,
+            "min": -12.0,
+            "max": 2.0
         },
         "PathLoss": {
             "min": 153.8,
             "typical": 159.6,
-            "max": 163.9
+            "max": 165.0
         }
     },
     "GEO": {
         
         "EIRP": {
-            "base": 53.0,
-            "min": 50.0,
-            "max": 60.0
+            "base": 56.0,
+            "min": 52.0,
+            "max": 62.0
         },
         "Altitude": 35786000,
         "G_T": {
-            "base": -42.0,
-            "min": -50.0,
-            "max": -35.0
+            "base": 8.0,
+            "min": 0.0,
+            "max": 20.0
         },
         "PathLoss": {
-            "typical": 201.6
+            "min": 199.0,
+            "typical": 201.6,
+            "max": 205.0
         }
+    },
+    "Latencies": {
+        "Processing_delay_ms": 2.0,
+        "Switching_delay_ms": 1.0
+    },
+    "MODCOD": {
+        "hysteresis_db": 0.5,
+        "auto_default": true,
+        "default": "QPSK 1/2",
+        "table": [
+            {"name": "QPSK 1/2", "modulation": "QPSK", "bits_per_symbol": 2, "code_rate": 0.5, "ebn0_req_db": 1.0},
+            {"name": "QPSK 3/4", "modulation": "QPSK", "bits_per_symbol": 2, "code_rate": 0.75, "ebn0_req_db": 3.0},
+            {"name": "8PSK 2/3", "modulation": "8PSK", "bits_per_symbol": 3, "code_rate": 0.6667, "ebn0_req_db": 5.0},
+            {"name": "8PSK 3/4", "modulation": "8PSK", "bits_per_symbol": 3, "code_rate": 0.75, "ebn0_req_db": 6.0},
+            {"name": "16QAM 3/4", "modulation": "16QAM", "bits_per_symbol": 4, "code_rate": 0.75, "ebn0_req_db": 8.5},
+            {"name": "16QAM 5/6", "modulation": "16QAM", "bits_per_symbol": 4, "code_rate": 0.8333, "ebn0_req_db": 9.5}
+        ]
     }
 }
