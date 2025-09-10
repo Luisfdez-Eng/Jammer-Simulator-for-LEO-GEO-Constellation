@@ -4,7 +4,8 @@
 
 An evolving project whose core is an interactive Tkinter GUI simulating a single satellite ↔ ground station link. It is designed to: (1) visualise LEO vs GEO orbital geometry, (2) expose and demystify a dynamic link budget, and (3) act as an interference scenarios (jamming), counter‑measures and large–scale constellation resilience analysis.
 
-![alt text](image.png)
+<img width="1911" height="1030" alt="image" src="https://github.com/user-attachments/assets/8269c758-15db-4a73-830e-01540549dfdd" />
+
 ## 🔍 Overview
 The repository currently ships with one self‑contained script `JammerSimulator.py` implementing:
 - Parameter loading (JSON) and a thin separation between core state and GUI.
@@ -164,3 +165,4 @@ TBD (provisional). Recommendation: a permissive license (MIT / Apache‑2.0) to 
 
 ---
 This README outlines the holistic direction without locking into rigid “scenario” sections: evolution is incremental and cumulative, focused on making each physical and operational layer of modern satellite ecosystems observable while preparing a foundation for threat and resilience analysis.
+
