@@ -1,4 +1,6 @@
-# 🛰️ Educational LEO / GEO Satellite Link Simulator & Progressive Jamming Analysis Framework
+# 🛰️ Educational LEO / GEO Satellite Link SimulCurrent status: **Scenario 1 Complete, Scenario 2 Research Phase**
+
+### ✅ **Scenario 1: LEO Fundamental Validation** *(Completed)*tor & Progressive Jamming Analysis Framework
 
 An evolving project whose core is an interactive Tkinter GUI simulating a single satellite ↔ ground station link. It is designed to: (1) visualise LEO vs GEO orbital geometry, (2) expose and demystify a dynamic link budget, and (3) act as an interference scenarios (jamming), counter‑measures and large–scale constellation resilience analysis.
 
@@ -19,58 +21,85 @@ On top of this base we will iteratively build a modular framework covering opera
 4. Encourage rapid experimentation: editable parameters + clean exports.
 5. Prepare a substrate for advanced evolutions (adaptive jamming, severe weather, hybrid redundancy, systemic resilience).
 
-## ✅ Current State (MVP)
-- Orbits: LEO (altitude from params) and GEO (fixed altitude). LEO orbit visually re‑scaled for clarity without altering physics.
-- Displayed metrics: Elevation, Distance, FSPL, One‑way latency, C/N0, C/N, EIRP, G/T.
-- Export: CSV and XLSX (formatted headers when `openpyxl` present).
-- Progressive documentation in `PROGRESO.md` plus narrative scenario definitions under `Escenarios/` (Spanish source notes retained).
+## ✅ Current State (Advanced Implementation)
+- **Realistic Earth Rotation**: Implemented with correct physics (0.004167°/s) and 100x time scaling
+- **LEO/GEO Orbital Dynamics**: Real orbital mechanics using v=√(μ/r), ~95min periods for 550km LEO
+- **Multi-Body Synchronization**: LEO + Earth + GEO rotate coordinately with proper physics
+- **Advanced Time Control**: 0.1s resolution with adjustable sensitivity (0.1x-5.0x)
+- **Complete Link Calculations**: FSPL, C/N0, C/N, Eb/N0, latencies, Doppler
+- **MODCOD Adaptive**: Full table with spectral efficiencies and required Eb/N0
+- **Precise Geometry**: Elevation corrected for Earth rotation, slant distance, visibility
+- **Multi-Constellation Architecture**: Framework ready for multiple satellites
+- **Enhanced Visualization**: 2D canvas with rotating elements and 35+ real-time metrics
+- **Data Export**: Structured CSV/XLSX with professional formatting
 
-## 📊 Metrics & Models (Baseline)
+## 📊 Metrics & Models (Current Implementation)
 | Category  | Implemented                      | Next expansion                                  |
 |-----------|----------------------------------|-------------------------------------------------|
-| Geometry  | Elevation, slant range           | Central angle, orbital period, visibility window|
-| Dynamics  | (pending)                        | Orbital velocity, range rate, Doppler inst/max  |
-| Power     | Fixed EIRP                       | Back‑off, saturated EIRP, power flux, received C|
-| Losses    | FSPL                             | Feeder, misalignment, atmosphere, rain, polarisation, implementation |
-| Noise     | Aggregate G/T                    | T_sky (clear / rain), T_rx, T_sys, N0, interference degradation |
-| Performance| C/N0, C/N                       | Eb/N0, margin, Shannon capacity, spectral efficiency |
-| Latency   | One‑way                          | RTT, processing & switching components          |
-| Interf.   | —                                | C/I, C/(N+I), multi‑jammer aggregation          |
-| Coverage  | —                                | Coverage area, estimated satellites for global, LEO+GEO hybrid |
+| Geometry  | Elevation, slant range, visibility, corrected for Earth rotation | Multi-satellite tracking, orbital inclination |
+| Dynamics  | Realistic orbital velocity, periods, Earth rotation (0.004167°/s) | Orbital velocity vectors, range rate, advanced Doppler |
+| Power     | EIRP effective with input/output back-off, saturated EIRP | Advanced power control, beam steering          |
+| Losses    | FSPL + 7 configurable loss categories (feeder, misalignment, atmospheric, rain, polarization, pointing, implementation) | ITU-R atmospheric models, rain fade statistics |
+| Noise     | Complete T_sys, T_rx, T_sky decomposition, N0 | Rain temperature excess, interference degradation |
+| Performance| C/N0, C/N, Eb/N0, margin analysis, Shannon capacity, spectral efficiency | BER curves, adaptive coding, QoS metrics      |
+| Latency   | One-way, RTT with processing and switching delays | Network latencies, buffering, adaptive delays   |
+| Time Control | 0.1s resolution, sensitivity 0.1x-5.0x, manual/auto modes | Time-synchronized multi-constellation         |
+| Interf.   | Framework ready                  | C/I, C/(N+I), terrestrial jammers, multi-jammer aggregation |
+| Coverage  | Single satellite visibility     | Multi-satellite coverage maps, handover optimization |
 
-## 🗺️ Layered Roadmap (Planned Evolution)
+## 🗺️ Scenario Implementation Progress
 Rather than freezing “scenarios” into the README, we track cumulative functional layers:
-1. Extended fundamentals: Doppler, RTT, power back‑off, detailed losses, decomposed noise.
-2. Basic interference: single ground jammer, C/I and CINR.
-3. Adaptive threat models: dynamic jammers (barrage / spot / swept / pulse) and carrier tracking.
-4. Environmental impacts: rain attenuation, gaseous absorption, scintillation and margin erosion.
-5. Multi‑source interference: aggregation, cooperative geometry analysis.
-6. Constellation dynamics: handovers, opportunity windows, Doppler exploitation, satellite selection.
-7. Progressive counter‑measures: adaptive power control, basic → advanced beam steering, frequency diversity.
-8. Hybrid architectures: LEO+GEO continuity / failover and transparent switching.
-9. Systemic resilience: mega‑constellation capacity retention, fragmentation, self‑healing behaviour.
-10. Advanced / military layers: low probability of intercept, enriched hopping, coordinated multi‑satellite defence.
+- Realistic LEO 550km and GEO 35,786km orbits with correct physics
+- Earth rotation synchronized with orbital dynamics  
+- Complete link budget: FSPL, C/N0, C/N, Eb/N0, latencies
+- MODCOD adaptive selection with spectral efficiency analysis
+- 35+ real-time metrics with professional data export
+- Validated: orbital mechanics, RF calculations, geometry
 
-Each layer adds configurable inputs, new metrics and explanatory documentation to preserve physical traceability and conceptual clarity.
+### 🔄 **Scenario 2: FCC Angular Discrimination with Terrestrial Jammer** *(Research Phase)*
+- Research focus: FCC angular discrimination regulations
+- Target: Terrestrial jammer interference modeling
+- Implementation: C/I ratios, jammer geometry, tracking algorithms
+- Status: Research prompt prepared for technical analysis
 
-## 🧩 Code Architecture
+### ⏳ **Scenarios 3-11: Planned Evolution**
+3. LEO Mega-Constellation with Outage Probability
+4. NB-IoT Multi-Beam with Frequency Reuse  
+5. Starlink Real-World Validation with Software Updates
+6. UPA Arrays with Realistic Beam Pointing
+7. Nearest vs Random Jamming Schemes
+8. A-FFHR Military Anti-Jamming
+9. Ultra-Dense LEO Optimization
+10. Rain Effects with Energy Dispersal
+11. Multi-Technique Integrated Analysis
+
+Each scenario adds configurable inputs, new metrics and explanatory documentation to preserve physical traceability and conceptual clarity.
+
+## 🧩 Code Architecture (Current Implementation)
 ```
-JammerSimulator.py
- ├─ ParameterLoader            (JSON parameter ingestion)
- ├─ Satellite / Constellation  (minimal orbital model)
- ├─ LEOEducationalCalculations (core formulas: FSPL, C/N0, latency)
+JammerSimulator.py (~1,500 lines)
+ ├─ ParameterLoader            (JSON parameter ingestion with validation)
+ ├─ Satellite / Constellation  (orbital model + multi-constellation framework)  
+ ├─ MultiConstellation         (framework for multiple satellite systems)
+ ├─ LEOEducationalCalculations (core formulas: FSPL, C/N0, latency, Doppler)
  ├─ JammerSimulatorCore        (shared state + LEO/GEO calculators)
- └─ SimulatorGUI (Tkinter)     (interaction, drawing, metrics, export)
+ └─ SimulatorGUI (Tkinter)     (advanced controls, time management, 35+ metrics, export)
 ```
-Future extensions will factor out modules (e.g. `losses.py`, `interference.py`, `orbital.py`) to keep the pedagogic core legible.
+Current implementation includes realistic Earth rotation, multi-body synchronization, and advanced time control. Future extensions will factor out jamming modules (`interference.py`, `jammers.py`, `countermeasures.py`) to maintain educational clarity.
 
 ## ▶️ Current Usage Flow
 1. Run `python JammerSimulator.py`.
 2. Select LEO or GEO mode.
-3. Adjust EIRP, G/T, frequency and bandwidth.
-4. (LEO) Start animation or drag the orbital angle slider to explore metric variation.
-5. Observe right‑panel metrics (FSPL, latency, C/N0, etc.).
-6. Export the time series to CSV/XLSX for offline analysis.
+3. Adjust EIRP, G/T, frequency, bandwidth, and loss parameters.
+4. **Time Control Options:**
+   - **Automatic Mode**: Start animation with real-time orbital dynamics
+   - **Manual Mode**: Enable fine control sliders for precise positioning
+   - **Sensitivity**: Adjust time scale (0.1x-5.0x) for detailed analysis
+5. **Advanced Features:**
+   - Drag time slider (0.1s resolution) to jump to specific simulation moments
+   - Configure MODCOD, back-off, noise temperatures, and processing delays
+   - Monitor 35+ real-time metrics including orbital geometry and link quality
+6. Export complete time series to CSV/XLSX for offline analysis and validation.
 
 ## ⚡ Quick Install
 Minimum: Python 3.10+ (Tkinter usually bundled). Optional: `openpyxl` for XLSX export.
@@ -98,9 +127,12 @@ On Windows, install the official Python distribution if Tkinter is missing.
 - Coverage: per‑satellite area and constellation sizing for a minimum elevation.
 - Hybrid failover: automatic link selection based on latency, margin, interference.
 
-## 📤 Data Export
-Current fields: time, mode, orbital angle / GEO longitude, elevation, visibility, distance, FSPL, latency, C/N0, C/N, EIRP, G/T, frequency, bandwidth.
-Planned fields: RTT, Doppler, individual losses, total path loss, carrier power C, N0, Eb/N0, margin, SNR, capacity, utilisation, interference metrics, processing latencies.
+## 📤 Data Export (Enhanced)
+**Current fields**: time, mode, orbital angle/GEO longitude, elevation, visibility, distance, FSPL, latency, C/N0, C/N, EIRP, G/T, frequency, bandwidth, all loss components, back-off values, temperature parameters, MODCOD selection, Eb/N0, margin analysis, Shannon capacity, spectral efficiency.
+
+**Advanced metrics**: RTT latencies, Doppler calculations, orbital velocity, angular rates, visibility windows, link quality assessment, performance utilization vs theoretical limits.
+
+**Export formats**: CSV (structured data) and XLSX (professional formatting with bold headers when `openpyxl` available).
 
 ## 🤝 Contributing
 While the core stabilises we welcome contributions focused on:
@@ -118,12 +150,14 @@ Please open issues describing: (1) educational purpose, (2) formula & reference,
 - No interference or channel jitter modelling yet.
 - Limited input validation (ranges / types) presently.
 
-## 🏁 Short‑Term Roadmap (Priorities)
-1. Add RTT, Doppler and orbital period.
-2. Introduce configurable loss block (all 0 by default).
-3. Decompose noise and add Eb/N0 + margin.
-4. Reorganise metrics panel into collapsible / basic vs advanced modes.
-5. Document new formulas & update export schema.
+## 🏁 Short‑Term Roadmap (Next Implementation)
+1. **Scenario 2**: Research and implement FCC angular discrimination with terrestrial jammers
+2. **C/I Analysis**: Carrier-to-Interference ratios and jammer effectiveness modeling
+3. **Jammer Geometry**: Terrestrial jammer positioning and satellite tracking algorithms
+4. **Advanced Interference**: Multi-jammer aggregation and coordinated attack scenarios
+5. **Anti-Jamming**: Basic countermeasures (power control, frequency hopping, beam steering)
+
+**Research Status**: Technical analysis prompt prepared for Perplexity research on FCC regulations and jamming techniques.
 
 ## 📄 License
 TBD (provisional). Recommendation: a permissive license (MIT / Apache‑2.0) to encourage educational adoption.
