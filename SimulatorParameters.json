@@ -101,5 +101,31 @@
             {"name": "16QAM 3/4", "modulation": "16QAM", "bits_per_symbol": 4, "code_rate": 0.75, "ebn0_req_db": 8.5},
             {"name": "16QAM 5/6", "modulation": "16QAM", "bits_per_symbol": 4, "code_rate": 0.8333, "ebn0_req_db": 9.5}
         ]
+    },
+    "Jamming": {
+        "enabled": false,
+        "spot_jamming": {
+            "power_dbm": 40.0,
+            "antenna_gain_dbi": 15.0,
+            "frequency_ghz": 12.0,
+            "bandwidth_mhz": 1.0,
+            "position": {
+                "latitude": 40.0,
+                "longitude": -3.0,
+                "distance_from_gs_km": 50.0,
+                "azimuth_deg": 45.0
+            },
+            "target_link": "downlink"
+        },
+        "discrimination": {
+            "angular_separation_deg": 2.0,
+            "polarization_isolation_db": -4.0,
+            "fcc_function_enabled": true
+        },
+        "effectiveness_thresholds": {
+            "cinr_critical_db": 10.0,
+            "cinr_acceptable_db": 15.0,
+            "degradation_effective_db": 1.0
+        }
     }
 }
